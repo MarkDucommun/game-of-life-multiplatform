@@ -1,0 +1,6 @@
+build/
+.idea/
+.gradle/
+game-of-life-js/node_modules
+game-of-life-js/build
+game-of-life-jvm/build

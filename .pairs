@@ -1,0 +1,8 @@
+pairs:
+  mf: Mendel Feygelson; mfeygelson
+  md: Mark Ducommun; mducommun
+
+email:
+  prefix: pair
+  domain: pivotal.io
+

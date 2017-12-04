@@ -69,7 +69,7 @@ class PlaneFragment : Fragment() {
     init {
 
         runAsync {
-            Thread.sleep(10)
+            Thread.sleep(15)
         } ui {
             next(plane)
         }

@@ -1,3 +1,5 @@
+import io.ducommun.gameOfLife.Coordinate
+import io.ducommun.gameOfLife.Plane
 import kotlin.js.Date
 import kotlin.test.Test
 class TestSpeed {

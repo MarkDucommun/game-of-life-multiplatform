@@ -15,10 +15,26 @@ repositories {
 }
 
 dependencies {
+    compile 'no.tornado:tornadofx:1.7.12'
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     expectedBy project(":")
     compile project(':')
     testCompile "junit:junit:4.12"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget= "1.8"
+}
+
+jar.dependsOn('copyJars')
+
+task copyJars(type: Copy) {
+
+    from configurations.runtime
+    into "$projectDir/build/libs"
 }

@@ -1,3 +1,5 @@
+import io.ducommun.gameOfLife.Coordinate
+import io.ducommun.gameOfLife.Plane
 import org.junit.Test
 
 class TestSpeed {
@@ -7,11 +9,11 @@ class TestSpeed {
 
         // r-pentamino
         val start = Plane(livingCells = setOf(
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 0, y = 1),
-            Coordinate(x = 0, y = -1),
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 1, y = 1)
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 0, y = 1),
+                Coordinate(x = 0, y = -1),
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 1, y = 1)
         ))
 
         val startTime = System.currentTimeMillis()

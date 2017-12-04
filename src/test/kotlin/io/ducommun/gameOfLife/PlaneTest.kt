@@ -1,3 +1,7 @@
+package io.ducommun.gameOfLife
+
+import io.ducommun.gameOfLife.Coordinate
+import io.ducommun.gameOfLife.Plane
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

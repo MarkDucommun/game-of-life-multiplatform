@@ -1,10 +1,13 @@
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.Plane
 import kotlin.js.Date
+import kotlin.test.Ignore
 import kotlin.test.Test
+
 class TestSpeed {
 
     @Test
+    @Ignore
     fun itIteratesThePlane() {
 
         val start = Plane(livingCells = setOf(

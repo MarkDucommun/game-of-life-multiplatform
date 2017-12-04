@@ -6,7 +6,11 @@ class Plane(private val livingCells: Set<Coordinate> = emptySet()) : Set<Coordin
 
         val livingNeighbors = coordinate.neighbors.filter(this::alive).size
 
-        nextLivingCells.takeUnless { livingNeighbors == 3 || coordinate.alive && livingNeighbors == 2 } ?: nextLivingCells.plus(coordinate)
+        if (livingNeighbors == 3 || coordinate.alive && livingNeighbors == 2) {
+            nextLivingCells.plus(coordinate)
+        } else {
+            nextLivingCells
+        }
 
     }.let(::Plane)
 
@@ -20,8 +24,9 @@ class Plane(private val livingCells: Set<Coordinate> = emptySet()) : Set<Coordin
     private val emptySet: Set<Coordinate> = kotlin.collections.emptySet()
 
     private val locationsToCheck: Set<Coordinate>
-        get() = livingCells.map { it.neighbors.plus(it) }.flatten().toSet()
+        get() = livingCells.flatMap { it.neighbors.plus(it) }.toSet()
 
+    // OVERRIDES
     override fun equals(other: Any?): Boolean = other is Plane && livingCells == other.livingCells
 
     override fun hashCode(): Int = livingCells.hashCode()

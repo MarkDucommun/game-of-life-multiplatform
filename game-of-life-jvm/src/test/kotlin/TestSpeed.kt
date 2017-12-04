@@ -1,10 +1,12 @@
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.Plane
+import org.junit.Ignore
 import org.junit.Test
 
 class TestSpeed {
 
     @Test
+    @Ignore
     fun `it iterates the plane`() {
 
         // r-pentamino

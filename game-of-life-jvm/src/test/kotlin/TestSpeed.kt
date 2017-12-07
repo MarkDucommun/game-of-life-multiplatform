@@ -1,27 +1,30 @@
-import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.Plane
-import org.junit.Ignore
+import io.ducommun.gameOfLife.MAX
+import io.ducommun.gameOfLife.MUTABLE_MAX
 import org.junit.Test
 
 class TestSpeed {
 
     @Test
-    @Ignore
     fun `it iterates the plane`() {
 
-        // r-pentamino
-        val start = Plane(livingCells = setOf(
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 0, y = 1),
-                Coordinate(x = 0, y = -1),
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 1, y = 1)
-        ))
+        val start = MAX
 
         val startTime = System.currentTimeMillis()
 
-        (1..1000).fold(start) { plane, _ -> plane.next() }
+        (1..630).fold(start) { plane, _ -> plane.next() }
 
-        println("Elapsed - ${System.currentTimeMillis() - startTime}ms")
+        println("Immutable: Elapsed - ${System.currentTimeMillis() - startTime}ms")
+    }
+
+    @Test
+    fun `it iterates the mutable plane`() {
+
+        val plane = MUTABLE_MAX
+
+        val startTime = System.currentTimeMillis()
+
+        repeat(630) { plane.next() }
+
+        println("Mutable: Elapsed - ${System.currentTimeMillis() - startTime}ms")
     }
 }

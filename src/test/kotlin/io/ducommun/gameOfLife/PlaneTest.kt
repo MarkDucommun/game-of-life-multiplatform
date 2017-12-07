@@ -1,23 +1,21 @@
 package io.ducommun.gameOfLife
 
-import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.Plane
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PlaneTest {
 
-    private val emptyPlane = Plane()
+    private val emptyPlane = HashSetPlane()
 
     @Test
     fun planesAreEqualIfTheyHaveTheSameSetOfCells() {
 
         assertTrue {
 
-            val planeOne = Plane(livingCells = setOf(Coordinate(x = 0, y = 0)))
+            val planeOne = HashSetPlane(livingCells = setOf(Coordinate(x = 0, y = 0)))
 
-            val planeTwo = Plane(livingCells = setOf(Coordinate(x = 0, y = 0)))
+            val planeTwo = HashSetPlane(livingCells = setOf(Coordinate(x = 0, y = 0)))
 
             planeOne == planeTwo
         }
@@ -39,7 +37,7 @@ class PlaneTest {
 
         assertTrue {
 
-            val nextPlane = Plane(livingCells = setOf(Coordinate(x = 0, y = 0))).next()
+            val nextPlane = HashSetPlane(livingCells = setOf(Coordinate(x = 0, y = 0))).next()
 
             nextPlane == emptyPlane
         }
@@ -50,7 +48,7 @@ class PlaneTest {
 
         assertTrue {
 
-            val plane = Plane(livingCells = setOf(
+            val plane = HashSetPlane(livingCells = setOf(
                     Coordinate(x = 0, y = 0),
                     Coordinate(x = 0, y = 1),
                     Coordinate(x = 1, y = 1),
@@ -68,13 +66,13 @@ class PlaneTest {
 
         assertTrue {
 
-            val plane = Plane(livingCells = setOf(
+            val plane = HashSetPlane(livingCells = setOf(
                     Coordinate(x = 0, y = -1),
                     Coordinate(x = 0, y = 0),
                     Coordinate(x = 0, y = 1)
             ))
 
-            val expectedNextPlane = Plane(livingCells = setOf(
+            val expectedNextPlane = HashSetPlane(livingCells = setOf(
                     Coordinate(x = -1, y = 0),
                     Coordinate(x = 0, y = 0),
                     Coordinate(x = 1, y = 0)
@@ -95,7 +93,7 @@ class PlaneTest {
 
             val plane = emptyPlane.toggleCell(location = coordinate)
 
-            plane.alive(location = coordinate)
+            plane.alive(cell = coordinate)
         }
     }
 
@@ -106,7 +104,7 @@ class PlaneTest {
 
             val coordinate = Coordinate(x = 0, y = 0)
 
-            val plane = Plane(livingCells = setOf(coordinate)).toggleCell(location = coordinate)
+            val plane = HashSetPlane(livingCells = setOf(coordinate)).toggleCell(location = coordinate)
 
             plane.alive(coordinate)
         }

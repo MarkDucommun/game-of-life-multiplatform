@@ -2,6 +2,7 @@ package io.ducommun.gameOfLife.parser
 
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.Plane
+import io.ducommun.gameOfLife.HashSetPlane
 
 sealed class Token {
     data class Digit(val value: String) : Token()
@@ -76,32 +77,6 @@ class RunLengthEncodedParser {
             }
         }
 
-        return Plane(livingCells = coordinates.toSet())
-
-//        return rows.mapIndexed { y, row ->
-//
-//            var position = 0
-//
-//            val xCoordinates = mutableListOf<Int>()
-//
-//            var number: Int? = null
-//
-//            tokens.forEach { token ->
-//                when (token) {
-//                    is Token.Digit -> number = token.value.toInt()
-//                    else -> {
-//                        val count = number ?: 1
-//                        if (token is Token.Alive) xCoordinates.addAll(position until position + count)
-//                        position += count
-//                        number = null
-//                    }
-//                }
-//            }
-//
-//            xCoordinates.map { x -> Coordinate(x = (x - xOffset).toShort(), y = (y - yOffset).toShort()) }
-//        }
-//                .flatten()
-//                .toSet()
-//                .let(::Plane)
+        return HashSetPlane(livingCells = coordinates.toSet())
     }
 }

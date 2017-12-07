@@ -1,5 +1,5 @@
 import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.Plane
+import io.ducommun.gameOfLife.HashSetPlane
 import kotlin.js.Date
 import kotlin.test.Ignore
 import kotlin.test.Test
@@ -10,7 +10,7 @@ class TestSpeed {
     @Ignore
     fun itIteratesThePlane() {
 
-        val start = Plane(livingCells = setOf(
+        val start = HashSetPlane(livingCells = setOf(
                 Coordinate(x = 0, y = 0),
                 Coordinate(x = 0, y = 1),
                 Coordinate(x = 0, y = -1),

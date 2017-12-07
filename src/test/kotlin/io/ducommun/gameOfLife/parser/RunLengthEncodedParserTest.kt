@@ -1,8 +1,7 @@
 package io.ducommun.gameOfLife.parser
 
 import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.Plane
-import kotlin.test.Ignore
+import io.ducommun.gameOfLife.HashSetPlane
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -10,7 +9,7 @@ class RunLengthEncodedParserTest {
 
     val parser = RunLengthEncodedParser()
 
-    fun assertParses(input: String, output: Plane) {
+    fun assertParses(input: String, output: HashSetPlane) {
         val plane = parser.parseString(input)
 //        assertEquals(emptySet(), output.subtract(plane))
 //        assertEquals(emptySet(), plane.subtract(output))
@@ -26,7 +25,7 @@ class RunLengthEncodedParserTest {
                     x = 1, y = 1
                     o!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = 0, y = 0)
                 ))
         )
@@ -40,7 +39,7 @@ class RunLengthEncodedParserTest {
                     x = 3, y = 1
                     ooo!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -1, y = 0),
                         Coordinate(x = 0, y = 0),
                         Coordinate(x = 1, y = 0)
@@ -56,7 +55,7 @@ class RunLengthEncodedParserTest {
                     x = 3, y = 1
                     obo!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -1, y = 0),
                         Coordinate(x = 1, y = 0)
                 ))
@@ -70,7 +69,7 @@ class RunLengthEncodedParserTest {
                     x = 1, y = 2
                     o${"$"}o!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = 0, y = 0),
                         Coordinate(x = 0, y = -1)
                 ))
@@ -84,7 +83,7 @@ class RunLengthEncodedParserTest {
                     x = 3, y = 2
                     ooo${"$"}obo!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -1, y = 0),
                         Coordinate(x = 0, y = 0),
                         Coordinate(x = 1, y = 0),
@@ -102,7 +101,7 @@ class RunLengthEncodedParserTest {
                     x = 3, y = 3
                     obb${"$"}bob${"$"}bbo!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -1, y = 1),
                         Coordinate(x = 0, y = 0),
                         Coordinate(x = 1, y = -1)
@@ -117,7 +116,7 @@ class RunLengthEncodedParserTest {
                     x = 3, y = 1
                     3o!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -1, y = 0),
                         Coordinate(x = 0, y = 0),
                         Coordinate(x = 1, y = 0)
@@ -132,7 +131,7 @@ class RunLengthEncodedParserTest {
                     x = 10, y = 1
                     10o!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = -5, y = 0),
                         Coordinate(x = -4, y = 0),
                         Coordinate(x = -3, y = 0),
@@ -154,7 +153,7 @@ class RunLengthEncodedParserTest {
                     x = 5, y = 2
                     3b2o${"$"}o!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = 1, y = 0),
                         Coordinate(x = 2, y = 0),
                         Coordinate(x = -2, y = -1)
@@ -170,7 +169,7 @@ class RunLengthEncodedParserTest {
                     3b2o${"$"}o
                     o${"$"}bo!
                 """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = 1, y = 1),
                         Coordinate(x = 2, y = 1),
                         Coordinate(x = -2, y = 0),
@@ -190,7 +189,7 @@ class RunLengthEncodedParserTest {
             o!
             #also a comment I guess, can they be here?
         """.trimIndent(),
-                output = Plane(setOf(Coordinate(x = 0, y = 0))))
+                output = HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
     }
 
     @Test
@@ -199,7 +198,7 @@ class RunLengthEncodedParserTest {
             x = 1, y = 1, rule = B3/S23
             o!
         """.trimIndent(),
-                output = Plane(setOf(Coordinate(x = 0, y = 0))))
+                output = HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
     }
 
     @Test
@@ -209,7 +208,7 @@ class RunLengthEncodedParserTest {
             x = 1, y = 3, rule = B3/S23
             o2${'$'}o!
         """.trimIndent(),
-                output = Plane(setOf(
+                output = HashSetPlane(setOf(
                         Coordinate(x = 0, y = 1),
                         Coordinate(x = 0, y = -1)
                 )))
@@ -234,6 +233,6 @@ class RunLengthEncodedParserTest {
 2 1""".split("\n").map { line ->
             val coords = line.split(" ")
             Coordinate(coords[0].toShort(), 0.minus(coords[1].toShort()).minus(1).toShort())
-        }.toSet().let(::Plane))
+        }.toSet().let(::HashSetPlane))
     }
 }

@@ -1,35 +1,33 @@
 package io.ducommun.gameOfLife
 
-class Plane(private val livingCells: Set<Coordinate> = emptySet()) : Set<Coordinate> by livingCells {
+interface Plane {
 
-    fun next(): Plane = locationsToCheck.fold(emptySet) { nextLivingCells, coordinate ->
+    fun next(): Plane
 
-        val livingNeighbors = coordinate.neighbors.filter(this::alive).size
+    val nextDiff: PlaneDiff
 
-        if (livingNeighbors == 3 || coordinate.alive && livingNeighbors == 2) {
-            nextLivingCells.plus(coordinate)
-        } else {
-            nextLivingCells
-        }
+    fun toggleCell(location: Coordinate): Plane
 
-    }.let(::Plane)
+    val size: Int
 
-    fun toggleCell(location: Coordinate): Plane =
-            (if (location.alive) livingCells.minus(location) else livingCells.plus(location)).let(::Plane)
+    fun alive(cell: Coordinate): Boolean
 
-    fun alive(location: Coordinate): Boolean = location.alive
-
-    private val Coordinate.alive: Boolean get() = livingCells.contains(this)
-
-    private val emptySet: Set<Coordinate> = kotlin.collections.emptySet()
-
-    private val locationsToCheck: Set<Coordinate>
-        get() = livingCells.flatMap { it.neighbors.plus(it) }.toSet()
-
-    // OVERRIDES
-    override fun equals(other: Any?): Boolean = other is Plane && livingCells == other.livingCells
-
-    override fun hashCode(): Int = livingCells.hashCode()
-
-    override fun toString(): String = livingCells.toString()
+    fun toList(): List<Coordinate>
 }
+
+data class PlaneDiff(
+        val revive: Set<Coordinate>,
+        val kill: Set<Coordinate>
+)
+
+interface MutablePlane {
+
+    fun next()
+
+    val nextDiff: PlaneDiff
+
+    val size: Int
+
+    fun alive(cell: Coordinate): Boolean
+}
+

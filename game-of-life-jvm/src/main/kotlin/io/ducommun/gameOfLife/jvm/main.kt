@@ -2,8 +2,10 @@
 
 package io.ducommun.gameOfLife.jvm
 
-import io.ducommun.gameOfLife.*
-import io.ducommun.gameOfLife.parser.RunLengthEncodedParser
+import io.ducommun.gameOfLife.Coordinate
+import io.ducommun.gameOfLife.Plane
+import io.ducommun.gameOfLife.PlaneDiff
+import io.ducommun.gameOfLife.Presets
 import javafx.application.Platform
 import javafx.scene.image.ImageView
 import javafx.scene.image.PixelFormat
@@ -12,13 +14,12 @@ import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import tornadofx.*
-import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 
 fun main(args: Array<String>) = launch<GameOfLifeApp>(args)
 
-val fps = 100L
+var fps = 60L
 
 val windowHeight = 1024.0
 val windowWidth = 1024.0
@@ -32,19 +33,17 @@ var yTranslation = 0
 var generations = 0
 var previousGenerations = 0
 var actualFps = 0
+var startTime: Long = 0
 
 class PlaneWrapper : View() {
 
-    val string = String(File("/Users/pivotal/workspace/game-of-life-multiplatform/game-of-life-jvm/src/main/resources/pattern.rle").readBytes())
-
-//    var plane = BREEDER_1
-    var plane = RunLengthEncodedParser().parseString(string)
+    private var plane =  Presets.MAX
 
     override val root = vbox {
         add(find<PlaneView>())
     }
 
-    fun next(): Job = launch {
+    private fun next(): Job = launch {
 
         var diff: PlaneDiff? = null
 
@@ -63,32 +62,37 @@ class PlaneWrapper : View() {
 
         Platform.runLater {
             find<PlaneView>().update(diff = diff ?: throw RuntimeException("uh oh"))
-            title = "${boardWidth}x${boardHeight}, ${plane.size} living cells, generation ${generations}, ${actualFps} fps, at (${-xTranslation}, ${-yTranslation})"
+            title = titleString
             next()
         }
 
         generations += 1
     }
 
-    fun render() {
+    private fun render() {
 
         Platform.runLater {
             find<PlaneView>().update(newPlane = plane)
-            title = "${boardWidth}x${boardHeight}, ${plane.size} living cells, generation ${generations}, ${actualFps} fps, at (${-xTranslation}, ${-yTranslation})"
+            title = titleString
         }
     }
 
-    fun calculateFps(): Job = launch {
+    private fun calculateFps(): Job = launch {
         actualFps = generations - previousGenerations
         previousGenerations = generations
-        delay(1, TimeUnit.SECONDS)
+        delay(time = 1, unit = TimeUnit.SECONDS)
         calculateFps()
     }
+
+    private val titleString: String get() =
+        "${boardWidth}x${boardHeight}, ${plane.size} living cells, generation ${generations}, ${actualFps} fps," +
+                " at (${-xTranslation}, ${-yTranslation}), ${(System.currentTimeMillis() - startTime) / 1000}s elapsed"
 
     init {
 
         primaryStage.height = windowHeight
         primaryStage.width = windowWidth
+        startTime = System.currentTimeMillis()
 
         render()
 
@@ -98,25 +102,25 @@ class PlaneWrapper : View() {
 
         shortcut("right") {
             xTranslation -= boardWidth / 100
-            find<PlaneView>().draw(plane)
+            find<PlaneView>().update(plane)
         }
         shortcut("left") {
             xTranslation += boardWidth / 100
-            find<PlaneView>().draw(plane)
+            find<PlaneView>().update(plane)
         }
         shortcut("up") {
             yTranslation += boardHeight / 100
-            find<PlaneView>().draw(plane)
+            find<PlaneView>().update(plane)
         }
         shortcut("down") {
             yTranslation -= boardHeight / 100
-            find<PlaneView>().draw(plane)
+            find<PlaneView>().update(plane)
         }
         shortcut("equals") {
             if (boardWidth >= 2 && boardHeight >= 2) {
                 boardWidth /= 2
                 boardHeight /= 2
-                find<PlaneView>().draw(plane)
+                find<PlaneView>().update(plane)
             }
         }
         shortcut("minus") {
@@ -124,10 +128,16 @@ class PlaneWrapper : View() {
                 boardWidth *= 2
                 boardHeight *= 2
             }
-            find<PlaneView>().draw(plane)
+            find<PlaneView>().update(plane)
         }
         shortcut("n") {
             next()
+        }
+        shortcut("s") {
+            fps += 1
+        }
+        shortcut("shift+s") {
+            if (fps > 1) fps -= 1
         }
     }
 }
@@ -139,25 +149,19 @@ class PlaneView : View() {
     override val root = vbox {
 
         setMinSize(windowWidth, windowHeight)
+        setMaxSize(windowWidth, windowHeight)
 
         add(ImageView(image))
     }
 
-    val emptyPlane = IntArray(windowWidth.toInt() * windowHeight.toInt()) { 0xffC1D5ECL.toInt() }
-
-    fun draw(plane: Plane) {
+    private fun draw(plane: Plane) {
 
         val xDimension = boardWidth / 2
         val yDimension = boardHeight /2
         val actualCellSize = (windowWidth.toInt() / boardWidth)
         val pixelWriter = image.pixelWriter
 
-        pixelWriter.setPixels(
-                0, 0,
-                windowWidth.toInt(), windowHeight.toInt(),
-                PixelFormat.getIntArgbInstance(),
-                emptyPlane,
-                0, windowWidth.toInt())
+        clear()
 
         val aliveCell = IntArray(actualCellSize * actualCellSize) { 0xff7A3433L.toInt() }
         val deadCell = IntArray(actualCellSize * actualCellSize) { 0xffC1D5ECL.toInt() }
@@ -173,7 +177,7 @@ class PlaneView : View() {
         }
     }
 
-    fun draw(diff: PlaneDiff) {
+    private fun draw(diff: PlaneDiff) {
 
         val xDimension = boardWidth / 2
         val yDimension = boardHeight /2
@@ -204,12 +208,19 @@ class PlaneView : View() {
         }
     }
 
+    fun clear() {
+        image.pixelWriter.setPixels(
+                0, 0,
+                windowWidth.toInt(), windowHeight.toInt(),
+                PixelFormat.getIntArgbInstance(),
+                emptyPlane,
+                0, windowWidth.toInt())
+    }
+
+    private val emptyPlane = IntArray(windowWidth.toInt() * windowHeight.toInt()) { 0xffC1D5ECL.toInt() }
+
     fun update(newPlane: Plane) {
-
         draw(newPlane)
-
-//        xTranslation += xTranslationPerFrame
-//        yTranslation += yTranslationPerFrame
     }
 
     fun update(diff: PlaneDiff) {

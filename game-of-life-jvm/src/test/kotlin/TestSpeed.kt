@@ -1,5 +1,4 @@
-import io.ducommun.gameOfLife.MAX
-import io.ducommun.gameOfLife.MUTABLE_MAX
+import io.ducommun.gameOfLife.*
 import org.junit.Test
 
 class TestSpeed {
@@ -7,7 +6,7 @@ class TestSpeed {
     @Test
     fun `it iterates the plane`() {
 
-        val start = MAX
+        val start = Presets.MAX
 
         val startTime = System.currentTimeMillis()
 
@@ -19,7 +18,7 @@ class TestSpeed {
     @Test
     fun `it iterates the mutable plane`() {
 
-        val plane = MUTABLE_MAX
+        val plane = ArrayPlane.create(Presets.MAX as HashSetPlane)
 
         val startTime = System.currentTimeMillis()
 

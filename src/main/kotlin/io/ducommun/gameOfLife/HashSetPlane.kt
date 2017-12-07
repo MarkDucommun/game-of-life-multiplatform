@@ -23,7 +23,7 @@ class HashSetPlane(private val livingCells: Set<Coordinate> = emptySet()) : Plan
 
         locationsToCheck.forEach { coordinate ->
 
-            val livingNeighbors = coordinate.neighbors.filter(this::alive).size
+            val livingNeighbors = coordinate.neighbors.filter { alive(it) }.size
             val alive = coordinate.alive
 
             val shouldLive = livingNeighbors == 3 || alive && livingNeighbors == 2
@@ -44,8 +44,6 @@ class HashSetPlane(private val livingCells: Set<Coordinate> = emptySet()) : Plan
     override fun alive(cell: Coordinate): Boolean = cell.alive
 
     private val Coordinate.alive: Boolean get() = livingCells.contains(this)
-
-    private val emptySet: Set<Coordinate> = kotlin.collections.emptySet()
 
     private val locationsToCheck: Set<Coordinate>
         get() = livingCells.flatMap { it.neighbors.plus(it) }.toSet()

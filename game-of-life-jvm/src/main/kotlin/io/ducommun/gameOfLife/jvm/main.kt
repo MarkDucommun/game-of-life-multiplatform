@@ -37,7 +37,7 @@ var startTime: Long = 0
 
 class PlaneWrapper : View() {
 
-    private var plane =  Presets.MAX
+    private var plane =  Presets.ACORN
 
     override val root = vbox {
         add(find<PlaneView>())

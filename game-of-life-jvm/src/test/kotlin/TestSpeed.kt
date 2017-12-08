@@ -1,9 +1,11 @@
 import io.ducommun.gameOfLife.*
+import org.junit.Ignore
 import org.junit.Test
 
 class TestSpeed {
 
     @Test
+    @Ignore
     fun `it iterates the plane`() {
 
         val start = Presets.MAX
@@ -16,6 +18,7 @@ class TestSpeed {
     }
 
     @Test
+    @Ignore
     fun `it iterates the mutable plane`() {
 
         val plane = ArrayPlane.create(Presets.MAX as HashSetPlane)

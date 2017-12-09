@@ -1,8 +1,6 @@
 package io.ducommun.gameOfLife.jvm
 
-import io.ducommun.gameOfLife.Presets.ACORN
 import io.ducommun.gameOfLife.Presets.BREEDER_ONE
-import io.ducommun.gameOfLife.Presets.MAX
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Rect
 import javafx.scene.image.PixelFormat
@@ -24,15 +22,36 @@ class GameOfLifeView : View() {
             scheduler = CoroutineScheduler(),
             canvasWidth = 1024,
             canvasHeight = 1024,
-            initialBoardWidth = 512,
-            initialBoardHeight = 512,
+            initialBoardWidth = 2048,
+            initialBoardHeight = 2048,
             aliveColor = 0xff7A3433L.toInt(),
             deadColor = 0xffC1D5ECL.toInt(),
             initialFps = 120
         ).run {
             setPlane(BREEDER_ONE)
+
             onDraw(self::draw)
             onDrawDiff(self::drawDiff)
+
+            shortcut("left") {
+                panLeft()
+            }
+            shortcut("right") {
+                panRight()
+            }
+            shortcut("up"){
+                panUp()
+            }
+            shortcut("down") {
+                panDown()
+            }
+            shortcut("equals") {
+                zoomIn()
+            }
+            shortcut("minus") {
+                zoomOut()
+            }
+
             start()
         }
     }

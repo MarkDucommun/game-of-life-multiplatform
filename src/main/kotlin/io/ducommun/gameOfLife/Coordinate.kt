@@ -5,6 +5,8 @@ data class Coordinate(
         val y: Short
 ) {
 
+    constructor(x: Int, y: Int) : this(x = x.toShort(), y = y.toShort())
+
     val neighbors: Set<Coordinate> get() = setOf(
             up,
             up.right,
@@ -21,3 +23,5 @@ data class Coordinate(
     private val down: Coordinate get() = copy(y = (y - 1).toShort())
     private val left: Coordinate get() = copy(x = (x - 1).toShort())
 }
+
+operator fun Coordinate.times(scalar: Int) = Coordinate(x = x * scalar, y = y * scalar)

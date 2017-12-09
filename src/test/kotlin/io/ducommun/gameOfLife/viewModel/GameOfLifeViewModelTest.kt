@@ -51,10 +51,10 @@ class GameOfLifeViewModelTest {
 
     val deadColor = 100
     val aliveColor = 101
-    val canvasWidth = 128
-    val canvasHeight = 128
+    var canvasWidth = 128
+    var canvasHeight = 128
 
-    val subject = GameOfLifeViewModel(
+    var subject = GameOfLifeViewModel(
         scheduler = scheduler,
         canvasWidth = canvasWidth,
         canvasHeight = canvasHeight,
@@ -67,37 +67,77 @@ class GameOfLifeViewModelTest {
 
     var canvas = IntArray(canvasWidth * canvasHeight)
 
-    @BeforeTest
-    fun setUp() {
-        subject.onDraw {
-            assertEquals(canvasWidth * canvasHeight, it.size, "Unexpected canvas size")
-            canvas = it
-        }
-        subject.onDrawDiff { rects ->
-            for (rect in rects) {
-                assertTrue("x=${rect.x} out of range") { rect.x in 0 .. canvasWidth - rect.width }
-                assertTrue("y=${rect.y} out of range") { rect.y in 0 .. canvasHeight - rect.height }
-                for (x in rect.x until rect.x + rect.width)
-                    for (y in rect.y until rect.y + rect.height)
-                        canvas[x + canvasWidth * y] = rect.color
+    fun row(vararg cells: Int): Iterable<Int> {
+        val deadCell = IntArray(canvasWidth / cells.size) { deadColor }
+            .asIterable()
+        val aliveCell = IntArray(canvasWidth / cells.size) { aliveColor }
+            .asIterable()
+
+        return cells.flatMap { cell ->
+            when (cell) {
+                0 -> deadCell
+                1 -> aliveCell
+                else -> throw Throwable("Unexpected cell value")
             }
         }
     }
 
+    fun grid(vararg rows: Iterable<Int>): IntArray =
+        rows.flatMap { row -> (1..canvasHeight / rows.size).flatMap { row } }.toIntArray()
+
+    private fun setDimensions(
+        boardWidth: Int = 4,
+        boardHeight: Int = 4,
+        canvasWidth: Int = 128,
+        canvasHeight: Int = 128) {
+
+        this.canvasWidth = canvasWidth
+        this.canvasHeight = canvasHeight
+
+        canvas = IntArray(canvasWidth * canvasHeight)
+
+        subject = GameOfLifeViewModel(
+            scheduler = scheduler,
+            canvasWidth = canvasWidth,
+            canvasHeight = canvasHeight,
+            initialBoardWidth = boardWidth,
+            initialBoardHeight = boardHeight,
+            aliveColor = aliveColor,
+            deadColor = deadColor,
+            initialFps = 10
+        ).apply {
+            onDraw {
+                assertEquals(canvasWidth * canvasHeight, it.size, "Unexpected canvas size")
+                canvas = it
+            }
+            onDrawDiff { rects ->
+                for (rect in rects) {
+                    assertTrue("x=${rect.x} out of range") { rect.x in 0..canvasWidth - rect.width }
+                    assertTrue("y=${rect.y} out of range") { rect.y in 0..canvasHeight - rect.height }
+                    for (x in rect.x until rect.x + rect.width)
+                        for (y in rect.y until rect.y + rect.height)
+                            canvas[x + canvasWidth * y] = rect.color
+                }
+            }
+        }
+    }
+
+    @BeforeTest
+    fun setUp() {
+        setDimensions()
+    }
+
     @Test
     fun draws_the_starting_plane() {
-        val emptyRow = IntArray(128) { deadColor }
-        val paintedRow = IntArray(64) { deadColor } +
-                         IntArray(32) { aliveColor } +
-                         IntArray(32) { deadColor }
-
-        val expectedCanvas = (0..127).flatMap {
-            if (it in 32..63) paintedRow.asIterable() else emptyRow.asIterable()
-        }.toIntArray()
 
         subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
 
-        assertCanvasEqual(expectedCanvas)
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
     }
 
     @Test
@@ -125,32 +165,21 @@ class GameOfLifeViewModelTest {
 
             scheduler.advance(milliseconds = 99)
 
-            var expectedCanvas = {
-                val emptyRow = IntArray(128) { deadColor }
-                val paintedRow = IntArray(32) { deadColor } +
-                                 IntArray(96) { aliveColor }
-
-                (0..127).flatMap {
-                    if (it in 32..63) paintedRow.asIterable() else emptyRow.asIterable()
-                }.toIntArray()
-            }.invoke()
-
-            assertCanvasEqual(expectedCanvas, "iteration ${2 * iteration - 1}")
+            assertCanvasEqual(grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            ), message = "iteration ${2 * iteration - 1}")
 
             scheduler.advance(milliseconds = 1)
 
-            expectedCanvas = {
-                val emptyRow = IntArray(128) { deadColor }
-                val paintedRow = IntArray(64) { deadColor } +
-                                 IntArray(32) { aliveColor } +
-                                 IntArray(32) { deadColor }
-
-                (0..127).flatMap {
-                    if (it in 0..95) paintedRow.asIterable() else emptyRow.asIterable()
-                }.toIntArray()
-            }.invoke()
-
-            assertCanvasEqual(expectedCanvas, "iteration ${2 * iteration}")
+            assertCanvasEqual(grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            ), message = "iteration ${2 * iteration}")
 
             scheduler.advance(milliseconds = 100)
         }
@@ -195,9 +224,277 @@ class GameOfLifeViewModelTest {
         assertCanvasEqual(IntArray(canvasWidth * canvasHeight) { deadColor })
     }
 
+    @Test
+    fun zoom_in_increases_cell_size_by_2_X_on_next_iteration() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0),
+            Coordinate(x = 1, y = 0)
+        )))
+
+        subject.start()
+        subject.zoomIn()
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 1),
+            row(0, 1)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(1, 1),
+            row(0, 0)
+        ))
+    }
+
+    @Test
+    fun zoom_out_decreases_cell_size_by_2_X_on_next_iteration() {
+        subject.zoomIn()
+
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0),
+            Coordinate(x = 1, y = 0)
+        )))
+
+        subject.start()
+
+        subject.zoomOut()
+
+        assertCanvasEqual(grid(
+            row(1, 1),
+            row(0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
+    fun pan_left_moves_one_place_to_the_right_on_next_iteration() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -2, y = 0),
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0)
+        )))
+
+        subject.start()
+
+        subject.panLeft()
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(1, 1, 1, 0),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
+    fun pan_right_moves_one_left_on_next_iteration() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0),
+            Coordinate(x = 1, y = 0)
+        )))
+
+        subject.start()
+
+        subject.panRight()
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 1, 0, 0),
+            row(0, 1, 0, 0),
+            row(0, 1, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(1, 1, 1, 0),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
+    fun pan_up_moves_one_down_on_next_iteration() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0),
+            Coordinate(x = 1, y = 0)
+        )))
+
+        subject.start()
+
+        subject.panUp()
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
+    fun pan_down_moves_one_up_on_next_iteration() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = -1),
+            Coordinate(x = 0, y = -1),
+            Coordinate(x = 1, y = -1)
+        )))
+
+        subject.start()
+
+        subject.panDown()
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(
+            row(0, 0, 0, 0),
+            row(0, 1, 1, 1),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
+    fun when_board_dimension_is_larger_than_canvas_dimension_it_draws_pixels_where_there_are_any_living_cells() {
+
+        setDimensions(canvasWidth = 2, canvasHeight = 2)
+
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = 1, y = 1),
+            Coordinate(x = 1, y = 0),
+            Coordinate(x = 0, y = 1),
+            Coordinate(x = 0, y = 0)
+        )))
+
+        assertCanvasEqual(grid(
+            row(0, 1),
+            row(0, 0)
+        ))
+    }
+
+    @Test
+    fun when_board_dimension_is_larger_than_canvas_dimension_it_updates() {
+        setDimensions(canvasWidth = 2, canvasHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+        }
+    }
+
     private fun assertCanvasEqual(expectedCanvas: IntArray, message: String? = null) {
-        for (y in 0..127) for (x in 0..127) {
-            val index = x + 128 * y
+        for (y in 0 until canvasHeight) for (x in 0 until canvasWidth) {
+            val index = x + canvasWidth * y
             val expected = expectedCanvas[index]
             val actual = canvas[index]
             if (expected != actual) assertEquals(

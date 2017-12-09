@@ -37,7 +37,7 @@ var startTime: Long = 0
 
 class PlaneWrapper : View() {
 
-    private var plane =  Presets.ACORN
+    private var plane =  Presets.R_PENTOMINO
 
     override val root = vbox {
         add(find<PlaneView>())

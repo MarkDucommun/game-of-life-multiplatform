@@ -1,12 +1,9 @@
 package io.ducommun.gameOfLife
 
-import io.ducommun.gameOfLife.Presets.ACORN
-import io.ducommun.gameOfLife.Presets.R_PENTOMINO
-import io.ducommun.gameOfLife.Presets.TEST_PATTERN
+import io.ducommun.gameOfLife.Presets.INFINITE_GLIDER_HOTEL_FOUR
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Scheduler
 import org.khronos.webgl.Uint8ClampedArray
-import org.khronos.webgl.set
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
 import kotlin.browser.document
@@ -14,9 +11,12 @@ import kotlin.browser.window
 
 fun main(args: Array<String>) {
 
+    val dimension = 1024
+
     val canvas = document.createElement("canvas") as HTMLCanvasElement
-    canvas.width = 1024
-    canvas.height = 1024
+
+    canvas.width = dimension
+    canvas.height = dimension
 
     document.body?.appendChild(canvas)
 
@@ -26,19 +26,19 @@ fun main(args: Array<String>) {
 
     GameOfLifeViewModel(
         scheduler = BrowserScheduler(),
-        canvasWidth = 1024,
-        canvasHeight = 1024,
+        canvasWidth = dimension,
+        canvasHeight = dimension,
         initialBoardWidth = 512,
         initialBoardHeight = 512,
         aliveColor = 0xff7A3433L.toInt(),
         deadColor = 0xffC1D5ECL.toInt(),
-        initialFps = 60
+        initialFps = 100
     ).run {
 
         onDraw { pixels ->
             context.run {
-                val imageData = createImageData(1024.0, 1024.0)
-                val bytes = Uint8ClampedArray(1024 * 1024 * 4)
+                val imageData = createImageData(dimension.toDouble(), dimension.toDouble())
+                val bytes = Uint8ClampedArray(dimension * dimension * 4)
                 pixels.forEachIndexed { index, pixel ->
                     bytes.asDynamic()[4 * index]     = pixel.and(0xff0000).shr(16)
                     bytes.asDynamic()[4 * index + 1] = pixel.and(0xff00).shr(8)
@@ -58,7 +58,7 @@ fun main(args: Array<String>) {
                 }
             }
         }
-        setPlane(R_PENTOMINO)
+        setPlane(INFINITE_GLIDER_HOTEL_FOUR)
         start()
     }
 }

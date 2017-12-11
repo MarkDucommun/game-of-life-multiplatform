@@ -1,5 +1,8 @@
 package io.ducommun.gameOfLife.jvm
 
+import io.ducommun.gameOfLife.Coordinate
+import io.ducommun.gameOfLife.HashSetPlane
+import io.ducommun.gameOfLife.Plane
 import io.ducommun.gameOfLife.Presets.BREEDER_ONE
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Rect
@@ -14,50 +17,56 @@ class GameOfLifeView : View() {
 
     private val image = WritableImage(1024, 1024)
 
-    init {
+    private val self = this
 
-        val self = this
+    val game = GameOfLifeViewModel(
+        scheduler = CoroutineScheduler(),
+        canvasWidth = 1024,
+        canvasHeight = 1024,
+        initialBoardWidth = 1,
+        initialBoardHeight = 1,
+        aliveColor = 0xff7A3433L.toInt(),
+        deadColor = 0xffC1D5ECL.toInt(),
+        initialFps = 1
+    ).run {
 
-        GameOfLifeViewModel(
-            scheduler = CoroutineScheduler(),
-            canvasWidth = 1024,
-            canvasHeight = 1024,
-            initialBoardWidth = 2048,
-            initialBoardHeight = 2048,
-            aliveColor = 0xff7A3433L.toInt(),
-            deadColor = 0xffC1D5ECL.toInt(),
-            initialFps = 120
-        ).run {
-            setPlane(BREEDER_ONE)
+        setPlane(HashSetPlane(setOf(Coordinate(0,0), Coordinate(1, 0), Coordinate(2, 0))))
 
-            onDraw(self::draw)
-            onDrawDiff(self::drawDiff)
+        onDraw(self::draw)
+        onDrawDiff(self::drawDiff)
 
-            shortcut("left") {
-                panLeft()
-            }
-            shortcut("right") {
-                panRight()
-            }
-            shortcut("up"){
-                panUp()
-            }
-            shortcut("down") {
-                panDown()
-            }
-            shortcut("equals") {
-                zoomIn()
-            }
-            shortcut("minus") {
-                zoomOut()
-            }
-
+        shortcut("left") {
+            panLeft()
+        }
+        shortcut("right") {
+            panRight()
+        }
+        shortcut("up"){
+            panUp()
+        }
+        shortcut("down") {
+            panDown()
+        }
+        shortcut("equals") {
+            zoomIn()
+        }
+        shortcut("minus") {
+            zoomOut()
+        }
+        shortcut("space") {
             start()
+        }
+        shortcut("n") {
+            next()
         }
     }
 
     override val root = vbox {
-        imageview(image)
+        imageview(image).run {
+            setOnMouseClicked { event ->
+                game()
+            }
+        }
     }
 
     private fun draw(canvas: IntArray) {

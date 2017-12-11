@@ -3,6 +3,7 @@ package io.ducommun.gameOfLife.viewModel
 import io.ducommun.gameOfLife.Plane
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
+import kotlin.reflect.KFunction
 
 interface Scheduler {
     fun immediately(task: () -> Unit)
@@ -40,6 +41,7 @@ class GameOfLifeViewModel(
     private var plane = HashSetPlane(setOf()) as Plane
 
     private var drawOnNextIteration = false
+    private var running = false
 
     private val cellSize get() = canvasWidth / boardWidth
 
@@ -56,6 +58,64 @@ class GameOfLifeViewModel(
         this.plane = plane
 
         render()
+    }
+
+    fun next() {
+        if (running) return
+
+        val diff = plane.nextDiff
+
+        plane = plane.next()
+
+        val rectsToChange =
+            diff.revive
+                .filterInBounds()
+                .map { it.asRect(aliveColor) } +
+            diff.kill
+                .filterInBounds()
+                .map { it.asRect(deadColor) }
+
+        scheduler.onUIThread {
+            drawDiff(rectsToChange)
+        }
+    }
+
+    fun start() {
+
+        running = true
+
+        val diff = plane.nextDiff
+
+        plane = plane.next()
+
+        scheduler.delay(1000 / initialFps) {
+
+            if (drawOnNextIteration || boardWidth > canvasWidth) {
+
+                drawOnNextIteration = false
+                render()
+
+            } else {
+
+                val rectsToChange =
+                    diff.revive
+                        .filterInBounds()
+                        .map { it.asRect(aliveColor) } +
+                    diff.kill
+                        .filterInBounds()
+                        .map { it.asRect(deadColor) }
+
+                scheduler.onUIThread {
+                    drawDiff(rectsToChange)
+                }
+            }
+
+            start()
+        }
+    }
+
+    fun stop() {
+
     }
 
     private fun render() {
@@ -105,38 +165,6 @@ class GameOfLifeViewModel(
         }
     }
 
-    fun start() {
-
-        val diff = plane.nextDiff
-
-        plane = plane.next()
-
-        scheduler.delay(1000 / initialFps) {
-
-            if (drawOnNextIteration || boardWidth > canvasWidth) {
-
-                drawOnNextIteration = false
-                render()
-
-            } else {
-
-                val rectsToChange =
-                    diff.revive
-                        .filterInBounds()
-                        .map { it.asRect(aliveColor) } +
-                    diff.kill
-                        .filterInBounds()
-                        .map { it.asRect(deadColor) }
-
-                scheduler.onUIThread {
-                    drawDiff(rectsToChange)
-                }
-            }
-
-            start()
-        }
-    }
-
     private fun Iterable<Coordinate>.filterInBounds(): Iterable<Coordinate> = filter {
         val canvas = translator.toCanvas(it)
         canvas.x * (canvasWidth / boardWidth) in 0 until canvasWidth &&
@@ -164,34 +192,40 @@ class GameOfLifeViewModel(
     }
 
     fun zoomIn() {
-        boardWidth /= 2
-        boardHeight /= 2
-        drawOnNextIteration = true
+        if (boardWidth > 1) {
+            boardWidth /= 2
+            boardHeight /= 2
+            if (!running) render() else drawOnNextIteration = true
+        }
     }
 
     fun zoomOut() {
         boardWidth *= 2
         boardHeight *= 2
-        drawOnNextIteration = true
+        if (!running) render() else drawOnNextIteration = true
     }
 
     fun panLeft() {
         xTranslation -= 1
         drawOnNextIteration = true
+        if (!running) render() else drawOnNextIteration = true
     }
 
     fun panRight() {
         xTranslation += 1
         drawOnNextIteration = true
+        if (!running) render() else drawOnNextIteration = true
     }
 
     fun panUp() {
         yTranslation += 1
         drawOnNextIteration = true
+        if (!running) render() else drawOnNextIteration = true
     }
 
     fun panDown() {
         yTranslation -= 1
         drawOnNextIteration = true
+        if (!running) render() else drawOnNextIteration = true
     }
 }

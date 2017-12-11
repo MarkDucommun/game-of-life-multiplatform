@@ -2,6 +2,7 @@ package io.ducommun.gameOfLife.jvm
 
 import io.ducommun.gameOfLife.viewModel.Scheduler
 import javafx.application.Platform
+import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 
 class CoroutineScheduler : Scheduler {
@@ -12,7 +13,7 @@ class CoroutineScheduler : Scheduler {
 
     override fun delay(milliseconds: Int, task: () -> Unit) {
         launch {
-            kotlinx.coroutines.experimental.delay(milliseconds.toLong())
+            delay(milliseconds.toLong())
             task()
         }
     }

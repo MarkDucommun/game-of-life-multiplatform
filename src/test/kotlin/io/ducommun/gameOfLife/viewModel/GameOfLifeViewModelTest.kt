@@ -42,7 +42,6 @@ class FakeScheduler : Scheduler {
             .forEach { immediately { it.execute() } }
         tasks.removeAll { it.scheduledTime <= ticks }
     }
-
 }
 
 class GameOfLifeViewModelTest {
@@ -255,6 +254,34 @@ class GameOfLifeViewModelTest {
             row(1, 1),
             row(0, 0)
         ))
+    }
+
+    @Test
+    fun zoom_in_allows_for_a_minimum_board_size_of_one() {
+
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.setPlane(HashSetPlane(setOf(
+                Coordinate(x = 2, y = 0),
+                Coordinate(x = 1, y = 0),
+                Coordinate(x = 0, y = 0)
+        )))
+
+        subject.start()
+        subject.zoomIn()
+
+        assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 0)
+        ))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(row(0)))
+
+        scheduler.advance(milliseconds = 100)
+
+        assertCanvasEqual(grid(row(1)))
     }
 
     @Test
@@ -488,6 +515,43 @@ class GameOfLifeViewModelTest {
             assertCanvasEqual(grid(
                 row(0, 1),
                 row(0, 1)
+            ))
+        }
+    }
+
+
+    @Test
+    fun stop_stops_rendering_the_game() {
+        setDimensions(canvasWidth = 2, canvasHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+            )))
+
+            start()
+
+            assertCanvasEqual(grid(
+                    row(1, 1),
+                    row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                    row(0, 1),
+                    row(0, 1)
+            ))
+
+            stop()
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                    row(0, 1),
+                    row(0, 1)
             ))
         }
     }

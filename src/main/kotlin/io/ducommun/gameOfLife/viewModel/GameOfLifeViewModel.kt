@@ -1,9 +1,9 @@
 package io.ducommun.gameOfLife.viewModel
 
-import io.ducommun.gameOfLife.Plane
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
-import kotlin.reflect.KFunction
+import io.ducommun.gameOfLife.Plane
+import io.ducommun.gameOfLife.PlaneDiff
 
 interface Scheduler {
     fun immediately(task: () -> Unit)
@@ -43,6 +43,8 @@ class GameOfLifeViewModel(
     private var drawOnNextIteration = false
     private var running = false
 
+    val isRunning get() = running
+
     private val cellSize get() = canvasWidth / boardWidth
 
     private val translator
@@ -60,62 +62,88 @@ class GameOfLifeViewModel(
         render()
     }
 
+    fun toggle(canvasX: Double, canvasY: Double) {
+
+        val scaledCanvas = Coordinate(x = (canvasX / cellSize).toInt(), y = (canvasY / cellSize).toInt())
+
+        val board = translator.toBoard(scaledCanvas)
+
+        plane = plane.toggleCell(board)
+
+        if (running) {
+
+            drawOnNextIteration = true
+
+        } else {
+
+            render()
+        }
+
+    }
+
     fun next() {
         if (running) return
 
-        val diff = plane.nextDiff
+        renderDiff(plane.nextDiff)
 
         plane = plane.next()
-
-        val rectsToChange =
-            diff.revive
-                .filterInBounds()
-                .map { it.asRect(aliveColor) } +
-            diff.kill
-                .filterInBounds()
-                .map { it.asRect(deadColor) }
-
-        scheduler.onUIThread {
-            drawDiff(rectsToChange)
-        }
     }
 
     fun start() {
 
         running = true
 
-        val diff = plane.nextDiff
-
-        plane = plane.next()
-
-        scheduler.delay(1000 / initialFps) {
-
-            if (drawOnNextIteration || boardWidth > canvasWidth) {
-
-                drawOnNextIteration = false
-                render()
-
-            } else {
-
-                val rectsToChange =
-                    diff.revive
-                        .filterInBounds()
-                        .map { it.asRect(aliveColor) } +
-                    diff.kill
-                        .filterInBounds()
-                        .map { it.asRect(deadColor) }
-
-                scheduler.onUIThread {
-                    drawDiff(rectsToChange)
-                }
-            }
-
-            start()
-        }
+        loop()
     }
 
     fun stop() {
+        running = false
+    }
 
+    fun loop() {
+
+        val diff = plane.nextDiff
+
+        val lastPlane = plane
+
+        scheduler.immediately {
+            plane = plane.next()
+        }
+
+        scheduler.delay(1000 / initialFps) {
+
+            if (running) {
+
+                if (drawOnNextIteration || boardWidth > canvasWidth) {
+
+                    drawOnNextIteration = false
+                    render()
+
+                } else {
+
+                    renderDiff(diff)
+                }
+
+                loop()
+
+            } else {
+                plane = lastPlane
+            }
+        }
+    }
+
+    fun renderDiff(diff: PlaneDiff) {
+        val rectsToChange =
+                diff.revive
+                        .filterInBounds()
+                        .map { it.asRect(aliveColor) } +
+                        diff.kill
+                                .filterInBounds()
+                                .map { it.asRect(deadColor) }
+
+        scheduler.onUIThread {
+            drawDiff(rectsToChange)
+        }
     }
 
     private fun render() {

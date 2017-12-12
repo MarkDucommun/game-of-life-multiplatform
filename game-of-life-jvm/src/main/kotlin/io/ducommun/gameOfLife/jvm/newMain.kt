@@ -1,9 +1,6 @@
 package io.ducommun.gameOfLife.jvm
 
-import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.HashSetPlane
-import io.ducommun.gameOfLife.Plane
-import io.ducommun.gameOfLife.Presets.BREEDER_ONE
+import io.ducommun.gameOfLife.Presets.MAX
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Rect
 import javafx.scene.image.PixelFormat
@@ -23,14 +20,14 @@ class GameOfLifeView : View() {
         scheduler = CoroutineScheduler(),
         canvasWidth = 1024,
         canvasHeight = 1024,
-        initialBoardWidth = 1,
-        initialBoardHeight = 1,
+        initialBoardWidth = 2048,
+        initialBoardHeight = 2048,
         aliveColor = 0xff7A3433L.toInt(),
         deadColor = 0xffC1D5ECL.toInt(),
-        initialFps = 1
-    ).run {
+        initialFps = 60
+    ).apply {
 
-        setPlane(HashSetPlane(setOf(Coordinate(0,0), Coordinate(1, 0), Coordinate(2, 0))))
+        setPlane(MAX)
 
         onDraw(self::draw)
         onDrawDiff(self::drawDiff)
@@ -54,7 +51,7 @@ class GameOfLifeView : View() {
             zoomOut()
         }
         shortcut("space") {
-            start()
+            if (isRunning) stop() else start()
         }
         shortcut("n") {
             next()
@@ -64,7 +61,7 @@ class GameOfLifeView : View() {
     override val root = vbox {
         imageview(image).run {
             setOnMouseClicked { event ->
-                game()
+                game.toggle(canvasX = event.x, canvasY = event.y)
             }
         }
     }

@@ -708,39 +708,79 @@ class GameOfLifeViewModelTest {
     }
 
     @Test
+    fun toggle_translates_the_canvas_coordinates_to_board_coordinates() {
+        setDimensions(
+                boardHeight = 4,
+                boardWidth = 4,
+                canvasHeight = 8,
+                canvasWidth = 8
+        )
+
+        subject.setPlane(HashSetPlane(setOf(
+                Coordinate(x = 0, y = 0)
+        )))
+
+        assertCanvasEqual(grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+        ))
+
+        subject.toggle(canvasX = 5.0, canvasY = 2.0)
+        subject.toggle(canvasX = 3.0, canvasY = 4.0)
+
+        assertCanvasEqual(grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0),
+                row(0, 1, 0, 0),
+                row(0, 0, 0, 0)
+        ))
+    }
+
+    @Test
     fun stop_stops_rendering_the_game() {
-//        setDimensions(canvasWidth = 2, canvasHeight = 2)
-//
-//        subject.run {
-//            setPlane(HashSetPlane(setOf(
-//                    Coordinate(x = -1, y = 0),
-//                    Coordinate(x = 0, y = 0),
-//                    Coordinate(x = 1, y = 0)
-//            )))
-//
-//            start()
-//
-//            assertCanvasEqual(grid(
-//                    row(1, 1),
-//                    row(0, 0)
-//            ))
-//
-//            scheduler.advance(milliseconds = 100)
-//
-//            assertCanvasEqual(grid(
-//                    row(0, 1),
-//                    row(0, 1)
-//            ))
-//
-//            stop()
-//
-//            scheduler.advance(milliseconds = 100)
-//
-//            assertCanvasEqual(grid(
-//                    row(0, 1),
-//                    row(0, 1)
-//            ))
-//        }
+        setDimensions(canvasWidth = 2, canvasHeight = 2)
+
+        println("BLRK")
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+            )))
+
+            start()
+
+            assertCanvasEqual(grid(
+                    row(1, 1),
+                    row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                    row(0, 1),
+                    row(0, 1)
+            ))
+
+            stop()
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                    row(0, 1),
+                    row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                    row(0, 1),
+                    row(0, 1)
+            ))
+        }
     }
 
     private fun assertCanvasEqual(expectedCanvas: IntArray, message: String? = null) {

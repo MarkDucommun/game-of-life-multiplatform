@@ -27,8 +27,10 @@ class GameOfLifeViewModel(
     initialBoardHeight: Int,
     private val aliveColor: Int,
     private val deadColor: Int,
-    private val initialFps: Int
+    initialFps: Int
 ) {
+
+    private var fps = initialFps
 
     private var boardWidth = initialBoardWidth
     private var boardHeight = initialBoardHeight
@@ -38,13 +40,22 @@ class GameOfLifeViewModel(
 
     private var draw: (IntArray) -> Unit = {}
     private var drawDiff: (List<Rect>) -> Unit = {}
+    private var setStats: (Stats) -> Unit = {}
     private var plane = HashSetPlane(setOf()) as Plane
+
+    data class Stats(
+        val running: Boolean,
+        val fps: Int,
+        val origin: Coordinate,
+        val xDimension: Int,
+        val yDimension: Int,
+        val generation: Int,
+        val cellCount: Int,
+        val elapsedSeconds: Int
+    )
 
     private var drawOnNextIteration = false
     private var running = false
-
-    val isRunning get() = running
-
     private val cellSize get() = canvasWidth / boardWidth
 
     private val translator
@@ -62,6 +73,16 @@ class GameOfLifeViewModel(
         render()
     }
 
+    fun onDraw(draw: (IntArray) -> Unit) {
+        this.draw = draw
+    }
+
+    fun onDrawDiff(drawDiff: (List<Rect>) -> Unit) {
+        this.drawDiff = drawDiff
+    }
+
+    fun onSetStats(setStats: (Stats) -> Unit) { this.setStats = setStats }
+
     fun toggle(canvasX: Double, canvasY: Double) {
 
         val scaledCanvas = Coordinate(x = (canvasX / cellSize).toInt(), y = (canvasY / cellSize).toInt())
@@ -70,15 +91,7 @@ class GameOfLifeViewModel(
 
         plane = plane.toggleCell(board)
 
-        if (running) {
-
-            drawOnNextIteration = true
-
-        } else {
-
-            render()
-        }
-
+        resetCanvas()
     }
 
     fun next() {
@@ -89,7 +102,11 @@ class GameOfLifeViewModel(
         plane = plane.next()
     }
 
+    fun toggleRunning() { if (running) stop() else start() }
+
     fun start() {
+
+        if (running) return
 
         running = true
 
@@ -100,7 +117,53 @@ class GameOfLifeViewModel(
         running = false
     }
 
-    fun loop() {
+    fun zoomIn() {
+        if (boardWidth > 1) {
+            boardWidth /= 2
+            boardHeight /= 2
+            resetCanvas()
+        }
+    }
+
+    fun zoomOut() {
+        boardWidth *= 2
+        boardHeight *= 2
+        resetCanvas()
+    }
+
+    fun panLeft() {
+        xTranslation -= 1
+        drawOnNextIteration = true
+        resetCanvas()
+    }
+
+    fun panRight() {
+        xTranslation += 1
+        drawOnNextIteration = true
+        resetCanvas()
+    }
+
+    fun panUp() {
+        yTranslation += 1
+        drawOnNextIteration = true
+        resetCanvas()
+    }
+
+    fun panDown() {
+        yTranslation -= 1
+        drawOnNextIteration = true
+        resetCanvas()
+    }
+
+    fun slowDown() {
+        if (fps / 2 < 1) fps = 1 else fps /= 2
+    }
+
+    fun speedUp() {
+        if (fps * 2 > 125) fps = 125 else fps *= 2
+    }
+
+    private fun loop() {
 
         val diff = plane.nextDiff
 
@@ -110,7 +173,7 @@ class GameOfLifeViewModel(
             plane = plane.next()
         }
 
-        scheduler.delay(1000 / initialFps) {
+        scheduler.delay(1000 / fps) {
 
             if (running) {
 
@@ -129,20 +192,6 @@ class GameOfLifeViewModel(
             } else {
                 plane = lastPlane
             }
-        }
-    }
-
-    fun renderDiff(diff: PlaneDiff) {
-        val rectsToChange =
-                diff.revive
-                        .filterInBounds()
-                        .map { it.asRect(aliveColor) } +
-                        diff.kill
-                                .filterInBounds()
-                                .map { it.asRect(deadColor) }
-
-        scheduler.onUIThread {
-            drawDiff(rectsToChange)
         }
     }
 
@@ -193,6 +242,20 @@ class GameOfLifeViewModel(
         }
     }
 
+    private fun renderDiff(diff: PlaneDiff) {
+        val rectsToChange =
+            diff.revive
+                .filterInBounds()
+                .map { it.asRect(aliveColor) } +
+            diff.kill
+                .filterInBounds()
+                .map { it.asRect(deadColor) }
+
+        scheduler.onUIThread {
+            drawDiff(rectsToChange)
+        }
+    }
+
     private fun Iterable<Coordinate>.filterInBounds(): Iterable<Coordinate> = filter {
         val canvas = translator.toCanvas(it)
         canvas.x * (canvasWidth / boardWidth) in 0 until canvasWidth &&
@@ -211,49 +274,7 @@ class GameOfLifeViewModel(
         )
     }
 
-    fun onDraw(draw: (IntArray) -> Unit) {
-        this.draw = draw
-    }
-
-    fun onDrawDiff(drawDiff: (List<Rect>) -> Unit) {
-        this.drawDiff = drawDiff
-    }
-
-    fun zoomIn() {
-        if (boardWidth > 1) {
-            boardWidth /= 2
-            boardHeight /= 2
-            if (!running) render() else drawOnNextIteration = true
-        }
-    }
-
-    fun zoomOut() {
-        boardWidth *= 2
-        boardHeight *= 2
-        if (!running) render() else drawOnNextIteration = true
-    }
-
-    fun panLeft() {
-        xTranslation -= 1
-        drawOnNextIteration = true
-        if (!running) render() else drawOnNextIteration = true
-    }
-
-    fun panRight() {
-        xTranslation += 1
-        drawOnNextIteration = true
-        if (!running) render() else drawOnNextIteration = true
-    }
-
-    fun panUp() {
-        yTranslation += 1
-        drawOnNextIteration = true
-        if (!running) render() else drawOnNextIteration = true
-    }
-
-    fun panDown() {
-        yTranslation -= 1
-        drawOnNextIteration = true
-        if (!running) render() else drawOnNextIteration = true
+    private fun resetCanvas() {
+        if (running) drawOnNextIteration = true else render()
     }
 }

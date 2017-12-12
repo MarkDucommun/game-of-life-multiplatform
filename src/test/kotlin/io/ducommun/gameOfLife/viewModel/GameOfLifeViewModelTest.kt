@@ -140,6 +140,16 @@ class GameOfLifeViewModelTest {
     }
 
     @Test
+    fun sets_the_title_when_plane_is_set() {
+        var titleSet: Boolean = false
+
+        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+
+
+
+    }
+
+    @Test
     fun draws_on_the_UI_thread() {
         var threadNum: Int? = null
 
@@ -161,6 +171,43 @@ class GameOfLifeViewModelTest {
         subject.start()
 
         (1..1).forEach { iteration ->
+
+            scheduler.advance(milliseconds = 99)
+
+            assertCanvasEqual(grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            ), message = "iteration ${2 * iteration - 1}")
+
+            scheduler.advance(milliseconds = 1)
+
+            assertCanvasEqual(grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            ), message = "iteration ${2 * iteration}")
+
+            scheduler.advance(milliseconds = 100)
+        }
+    }
+
+
+    @Test
+    fun calling_start_twice_does_not_start_two_loops() {
+        subject.setPlane(HashSetPlane(setOf(
+            Coordinate(x = -1, y = 0),
+            Coordinate(x = 0, y = 0),
+            Coordinate(x = 1, y = 0)
+        )))
+
+        subject.start()
+
+        subject.start()
+
+        (1..10).forEach { iteration ->
 
             scheduler.advance(milliseconds = 99)
 
@@ -742,8 +789,6 @@ class GameOfLifeViewModelTest {
     fun stop_stops_rendering_the_game() {
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
-        println("BLRK")
-
         subject.run {
             setPlane(HashSetPlane(setOf(
                     Coordinate(x = -1, y = 0),
@@ -779,6 +824,268 @@ class GameOfLifeViewModelTest {
             assertCanvasEqual(grid(
                     row(0, 1),
                     row(0, 1)
+            ))
+        }
+    }
+
+    @Test
+    fun slow_halves_the_frames_per_second() {
+
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            slowDown()
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 200)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+        }
+    }
+
+
+    @Test
+    fun slow_never_goes_lower_than_1_fps() {
+
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            repeat(20) { slowDown() }
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 999)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 1)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 1000)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+        }
+    }
+
+    @Test
+    fun speed_up_doubles_the_frames_per_second() {
+
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            speedUp()
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 50)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 50)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 50)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+        }
+    }
+
+
+    @Test
+    fun speed_up_never_goes_faster_than_125_fps() {
+
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            repeat(20) { speedUp() }
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 8)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 8)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 8)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+        }
+    }
+
+    @Test
+    fun toggle_running_starts_if_stopped() {
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            toggleRunning()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+        }
+    }
+
+    @Test
+    fun toggle_running_stops_if_started() {
+        setDimensions(boardWidth = 2, boardHeight = 2)
+
+        subject.run {
+            setPlane(HashSetPlane(setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            )))
+
+            start()
+
+            assertCanvasEqual(grid(
+                row(1, 1),
+                row(0, 0)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            toggleRunning()
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
+            ))
+
+            scheduler.advance(milliseconds = 100)
+
+            assertCanvasEqual(grid(
+                row(0, 1),
+                row(0, 1)
             ))
         }
     }

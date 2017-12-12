@@ -2,6 +2,7 @@ package io.ducommun.gameOfLife.jvm
 
 import io.ducommun.gameOfLife.Presets.MAX
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
+import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel.Stats
 import io.ducommun.gameOfLife.viewModel.Rect
 import javafx.scene.image.PixelFormat
 import javafx.scene.image.WritableImage
@@ -14,14 +15,12 @@ class GameOfLifeView : View() {
 
     private val image = WritableImage(1024, 1024)
 
-    private val self = this
-
     val game = GameOfLifeViewModel(
         scheduler = CoroutineScheduler(),
         canvasWidth = 1024,
         canvasHeight = 1024,
-        initialBoardWidth = 2048,
-        initialBoardHeight = 2048,
+        initialBoardWidth = 512,
+        initialBoardHeight = 512,
         aliveColor = 0xff7A3433L.toInt(),
         deadColor = 0xffC1D5ECL.toInt(),
         initialFps = 60
@@ -29,8 +28,9 @@ class GameOfLifeView : View() {
 
         setPlane(MAX)
 
-        onDraw(self::draw)
-        onDrawDiff(self::drawDiff)
+        onDraw(this@GameOfLifeView::draw)
+        onDrawDiff(this@GameOfLifeView::drawDiff)
+        onSetStats(this@GameOfLifeView::setTitle)
 
         shortcut("left") {
             panLeft()
@@ -51,10 +51,16 @@ class GameOfLifeView : View() {
             zoomOut()
         }
         shortcut("space") {
-            if (isRunning) stop() else start()
+            toggleRunning()
         }
         shortcut("n") {
             next()
+        }
+        shortcut("s") {
+            speedUp()
+        }
+        shortcut("shift+s") {
+            slowDown()
         }
     }
 
@@ -84,6 +90,19 @@ class GameOfLifeView : View() {
                 IntArray(rect.width * rect.height) { rect.color },
                 0, rect.width
             )
+        }
+    }
+
+    private fun setTitle(stats: Stats) {
+        title = stats.run {
+            val boardInfo = "$boardWidth x $boardHeight at (${origin.x},${origin.y})"
+            val gameInfo = "$cellCount alive at generation $generation in $elapsedSeconds seconds running"
+
+            if (running) {
+                "$boardInfo, $gameInfo"
+            } else {
+                "$fps frames per second, $boardInfo, $gameInfo"
+            }
         }
     }
 }

@@ -37,7 +37,7 @@ var startTime: Long = 0
 
 class PlaneWrapper : View() {
 
-    private var plane =  Presets.R_PENTOMINO
+    private var plane = Presets.R_PENTOMINO
 
     override val root = vbox {
         add(find<PlaneView>())
@@ -84,9 +84,10 @@ class PlaneWrapper : View() {
         calculateFps()
     }
 
-    private val titleString: String get() =
-        "${boardWidth}x${boardHeight}, ${plane.size} living cells, generation ${generations}, ${actualFps} fps," +
-                " at (${-xTranslation}, ${-yTranslation}), ${(System.currentTimeMillis() - startTime) / 1000}s elapsed"
+    private val titleString: String
+        get() =
+            "${boardWidth}x${boardHeight}, ${plane.size} living cells, generation ${generations}, ${actualFps} fps," +
+            " at (${-xTranslation}, ${-yTranslation}), ${(System.currentTimeMillis() - startTime) / 1000}s elapsed"
 
     init {
 
@@ -157,7 +158,7 @@ class PlaneView : View() {
     private fun draw(plane: Plane) {
 
         val xDimension = boardWidth / 2
-        val yDimension = boardHeight /2
+        val yDimension = boardHeight / 2
         val actualCellSize = (windowWidth.toInt() / boardWidth)
         val pixelWriter = image.pixelWriter
 
@@ -168,19 +169,20 @@ class PlaneView : View() {
 
         for (x in -xDimension + xTranslation until xDimension + xTranslation) for (y in -yDimension + yTranslation until yDimension + yTranslation) {
             pixelWriter.setPixels(
-                    (x - xTranslation + xDimension) * actualCellSize,
-                    (y - yTranslation + yDimension) * actualCellSize,
-                    actualCellSize, actualCellSize,
-                    PixelFormat.getIntArgbInstance(),
-                    if (plane.alive(Coordinate(x.toShort(), 0.minus(y).toShort()))) aliveCell else deadCell,
-                    0, actualCellSize)
+                (x - xTranslation + xDimension) * actualCellSize,
+                (y - yTranslation + yDimension) * actualCellSize,
+                actualCellSize, actualCellSize,
+                PixelFormat.getIntArgbInstance(),
+                if (plane.alive(Coordinate(x.toShort(), 0.minus(y).toShort()))) aliveCell else deadCell,
+                0, actualCellSize
+            )
         }
     }
 
     private fun draw(diff: PlaneDiff) {
 
         val xDimension = boardWidth / 2
-        val yDimension = boardHeight /2
+        val yDimension = boardHeight / 2
         val actualCellSize = (windowWidth / boardWidth).toInt()
         val pixelWriter = image.pixelWriter
 
@@ -189,32 +191,35 @@ class PlaneView : View() {
 
         for (coordinate in diff.revive.filter { coordinate -> -xDimension <= coordinate.x - xTranslation && coordinate.x - xTranslation < xDimension && -yDimension <= -coordinate.y - yTranslation && -coordinate.y - yTranslation < yDimension }) {
             pixelWriter.setPixels(
-                    (coordinate.x - xTranslation + xDimension) * actualCellSize,
-                    (-coordinate.y - yTranslation + yDimension) * actualCellSize,
-                    actualCellSize, actualCellSize,
-                    PixelFormat.getIntArgbInstance(),
-                    aliveCell,
-                    0, actualCellSize)
+                (coordinate.x - xTranslation + xDimension) * actualCellSize,
+                (-coordinate.y - yTranslation + yDimension) * actualCellSize,
+                actualCellSize, actualCellSize,
+                PixelFormat.getIntArgbInstance(),
+                aliveCell,
+                0, actualCellSize
+            )
         }
 
         for (coordinate in diff.kill.filter { coordinate -> -xDimension <= coordinate.x - xTranslation && coordinate.x - xTranslation < xDimension && -yDimension <= -coordinate.y - yTranslation && -coordinate.y - yTranslation < yDimension }) {
             pixelWriter.setPixels(
-                    (coordinate.x - xTranslation + xDimension) * actualCellSize,
-                    (-coordinate.y - yTranslation + yDimension) * actualCellSize,
-                    actualCellSize, actualCellSize,
-                    PixelFormat.getIntArgbInstance(),
-                    deadCell,
-                    0, actualCellSize)
+                (coordinate.x - xTranslation + xDimension) * actualCellSize,
+                (-coordinate.y - yTranslation + yDimension) * actualCellSize,
+                actualCellSize, actualCellSize,
+                PixelFormat.getIntArgbInstance(),
+                deadCell,
+                0, actualCellSize
+            )
         }
     }
 
     fun clear() {
         image.pixelWriter.setPixels(
-                0, 0,
-                windowWidth.toInt(), windowHeight.toInt(),
-                PixelFormat.getIntArgbInstance(),
-                emptyPlane,
-                0, windowWidth.toInt())
+            0, 0,
+            windowWidth.toInt(), windowHeight.toInt(),
+            PixelFormat.getIntArgbInstance(),
+            emptyPlane,
+            0, windowWidth.toInt()
+        )
     }
 
     private val emptyPlane = IntArray(windowWidth.toInt() * windowHeight.toInt()) { 0xffC1D5ECL.toInt() }

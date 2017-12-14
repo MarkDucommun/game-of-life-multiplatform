@@ -33,4 +33,14 @@ object Presets {
     val THREE_ENGINE_CORDERSHIP_GUN: Plane by lazy { parser.parseString(PresetStrings.THREE_ENGINE_CORDERSHIP_GUN) }
     val THREE_ENGINE_CORDERSHIP_RAKE: Plane by lazy { parser.parseString(PresetStrings.THREE_ENGINE_CORDERSHIP_RAKE) }
     val TEST_PATTERN: Plane by lazy { parser.parseString(PresetStrings.TEST_PATTERN) }
+    val EMPTY: Plane = HashSetPlane(emptySet())
+}
+
+object Colors {
+    val WHITE = 0xFF_FF_FF
+    val BLACK = 0x00_00_00
+    val FLAT_BLACK = 0x22_22_28
+    val LIGHT_YELLOW = 0xFF_FF_E1
+    val MAROON = 0x7A_34_33
+    val SKY_BLUE = 0xC1_D5_ECL
 }

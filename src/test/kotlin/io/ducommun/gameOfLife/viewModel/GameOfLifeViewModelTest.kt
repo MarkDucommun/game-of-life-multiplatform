@@ -88,7 +88,8 @@ class GameOfLifeViewModelTest {
         boardWidth: Int = 4,
         boardHeight: Int = 4,
         canvasWidth: Int = 128,
-        canvasHeight: Int = 128) {
+        canvasHeight: Int = 128
+    ) {
 
         this.canvasWidth = canvasWidth
         this.canvasHeight = canvasHeight
@@ -131,21 +132,42 @@ class GameOfLifeViewModelTest {
 
         subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun sets_the_title_when_plane_is_set() {
         var titleSet: Boolean = false
 
+        subject.onSetStats { stats ->
+
+            assertEquals(
+                expected = GameOfLifeViewModel.Stats(
+                    running = false,
+                    fps = 0.0,
+                    origin = Coordinate(0, 0),
+                    xDimension = 4,
+                    yDimension = 4,
+                    generation = 0,
+                    cellCount = 1,
+                    elapsedSeconds = 0
+                ),
+                actual = stats
+            )
+
+            titleSet = true
+        }
+
         subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
 
-
+        assertTrue { titleSet }
 
     }
 
@@ -161,12 +183,181 @@ class GameOfLifeViewModelTest {
     }
 
     @Test
+    fun sets_title_on_the_UI_thread() {
+        var threadNum: Int? = null
+
+        subject.onSetStats { threadNum = scheduler.threadNum }
+
+        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+
+        assertEquals(UI_THREAD, threadNum)
+    }
+
+    @Test
+    fun sets_the_title_and_increments_generation_when_running() {
+
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
+
+        var setTitleCount = 0
+
+        subject.onSetStats {
+            setTitleCount++
+            assertEquals(expected = setTitleCount, actual = it.generation)
+        }
+
+        var currentTime = 0L
+
+        subject.onGetTimeMillis { currentTime }
+
+        subject.start()
+
+        repeat(10) { scheduler.advance(100) }
+
+        assertEquals(expected = 10, actual = setTitleCount)
+
+    }
+
+    @Test
+    fun tracks_elapsed_time_when_running() {
+
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
+
+        var elapsedTime: Long? = null
+
+        subject.onSetStats {
+            elapsedTime = it.elapsedSeconds
+        }
+
+        var currentTime = 0L
+
+        subject.onGetTimeMillis { currentTime }
+
+        subject.start()
+
+        currentTime = 1000
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 1000, actual = elapsedTime)
+
+        subject.stop()
+
+        currentTime = 1500
+
+        subject.start()
+
+        currentTime = 2000
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 1500, actual = elapsedTime)
+    }
+
+    @Test
+    fun tracks_frames_per_second_when_running() {
+
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
+
+        var framesPerSecond: Double? = null
+
+        subject.onSetStats {
+            framesPerSecond = it.fps
+        }
+
+        var currentTime = 0L
+
+        subject.onGetTimeMillis { currentTime }
+
+        subject.start()
+
+        currentTime = 2000
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 0.5, actual = framesPerSecond)
+
+        currentTime = 3000
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 1.0, actual = framesPerSecond)
+    }
+
+
+    @Test
+    fun frames_per_second_only_changes_once_per_second() {
+
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
+
+        var framesPerSecond: Double? = null
+
+        subject.onSetStats {
+            framesPerSecond = it.fps
+        }
+
+        var currentTime = 0L
+
+        subject.onGetTimeMillis { currentTime }
+
+        subject.start()
+
+        currentTime = 500
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 0.0, actual = framesPerSecond)
+
+        currentTime = 1000
+
+        scheduler.advance(100)
+
+        assertEquals(expected = 2.0, actual = framesPerSecond)
+    }
+
+    @Test
     fun calling_the_start_method_and_advancing_time_by_more_than_frame_rate_draws_next_plane() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
@@ -174,21 +365,25 @@ class GameOfLifeViewModelTest {
 
             scheduler.advance(milliseconds = 99)
 
-            assertCanvasEqual(grid(
-                row(0, 0, 0, 0),
-                row(0, 1, 1, 1),
-                row(0, 0, 0, 0),
-                row(0, 0, 0, 0)
-            ), message = "iteration ${2 * iteration - 1}")
+            assertCanvasEqual(
+                grid(
+                    row(0, 0, 0, 0),
+                    row(0, 1, 1, 1),
+                    row(0, 0, 0, 0),
+                    row(0, 0, 0, 0)
+                ), message = "iteration ${2 * iteration - 1}"
+            )
 
             scheduler.advance(milliseconds = 1)
 
-            assertCanvasEqual(grid(
-                row(0, 0, 1, 0),
-                row(0, 0, 1, 0),
-                row(0, 0, 1, 0),
-                row(0, 0, 0, 0)
-            ), message = "iteration ${2 * iteration}")
+            assertCanvasEqual(
+                grid(
+                    row(0, 0, 1, 0),
+                    row(0, 0, 1, 0),
+                    row(0, 0, 1, 0),
+                    row(0, 0, 0, 0)
+                ), message = "iteration ${2 * iteration}"
+            )
 
             scheduler.advance(milliseconds = 100)
         }
@@ -197,11 +392,15 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun calling_start_twice_does_not_start_two_loops() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
@@ -211,21 +410,25 @@ class GameOfLifeViewModelTest {
 
             scheduler.advance(milliseconds = 99)
 
-            assertCanvasEqual(grid(
-                row(0, 0, 0, 0),
-                row(0, 1, 1, 1),
-                row(0, 0, 0, 0),
-                row(0, 0, 0, 0)
-            ), message = "iteration ${2 * iteration - 1}")
+            assertCanvasEqual(
+                grid(
+                    row(0, 0, 0, 0),
+                    row(0, 1, 1, 1),
+                    row(0, 0, 0, 0),
+                    row(0, 0, 0, 0)
+                ), message = "iteration ${2 * iteration - 1}"
+            )
 
             scheduler.advance(milliseconds = 1)
 
-            assertCanvasEqual(grid(
-                row(0, 0, 1, 0),
-                row(0, 0, 1, 0),
-                row(0, 0, 1, 0),
-                row(0, 0, 0, 0)
-            ), message = "iteration ${2 * iteration}")
+            assertCanvasEqual(
+                grid(
+                    row(0, 0, 1, 0),
+                    row(0, 0, 1, 0),
+                    row(0, 0, 1, 0),
+                    row(0, 0, 0, 0)
+                ), message = "iteration ${2 * iteration}"
+            )
 
             scheduler.advance(milliseconds = 100)
         }
@@ -250,20 +453,28 @@ class GameOfLifeViewModelTest {
     @Test
     fun cells_out_of_bounds_are_not_drawn_when_setting_plane() {
 
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = 5, y = 5)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = 5, y = 5)
+                )
+            )
+        )
 
         assertCanvasEqual(IntArray(canvasWidth * canvasHeight) { deadColor })
     }
 
     @Test
     fun cells_out_of_bounds_are_not_drawn_when_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -2, y = -3),
-            Coordinate(x = -3, y = -3),
-            Coordinate(x = -4, y = -3)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -2, y = -3),
+                    Coordinate(x = -3, y = -3),
+                    Coordinate(x = -4, y = -3)
+                )
+            )
+        )
         subject.start()
         scheduler.advance(milliseconds = 1000)
 
@@ -272,58 +483,76 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun zoom_in_works_when_not_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.zoomIn()
 
-        assertCanvasEqual(grid(
-            row(1, 1),
-            row(0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(1, 1),
+                row(0, 0)
+            )
+        )
     }
 
     @Test
     fun zoom_in_increases_cell_size_by_2_X_on_next_iteration() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
         subject.zoomIn()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 1),
-            row(0, 1)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 1),
+                row(0, 1)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(1, 1),
-            row(0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(1, 1),
+                row(0, 0)
+            )
+        )
     }
 
     @Test
@@ -331,19 +560,25 @@ class GameOfLifeViewModelTest {
 
         setDimensions(boardWidth = 2, boardHeight = 2)
 
-        subject.setPlane(HashSetPlane(setOf(
-                Coordinate(x = 2, y = 0),
-                Coordinate(x = 1, y = 0),
-                Coordinate(x = 0, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = 2, y = 0),
+                    Coordinate(x = 1, y = 0),
+                    Coordinate(x = 0, y = 0)
+                )
+            )
+        )
 
         subject.start()
         subject.zoomIn()
 
-        assertCanvasEqual(grid(
+        assertCanvasEqual(
+            grid(
                 row(0, 1),
                 row(0, 0)
-        ))
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
@@ -364,315 +599,405 @@ class GameOfLifeViewModelTest {
     fun zoom_out_decreases_cell_size_by_2_X_on_next_iteration() {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
         subject.zoomOut()
 
-        assertCanvasEqual(grid(
-            row(1, 1),
-            row(0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(1, 1),
+                row(0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun zoom_out_works_when_not_running() {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(1, 1),
-            row(0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(1, 1),
+                row(0, 0)
+            )
+        )
 
         subject.zoomOut()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_left_moves_one_place_to_the_right_on_next_iteration() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -2, y = 0),
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -2, y = 0),
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
         subject.panLeft()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(1, 1, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(1, 1, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_right_moves_one_left_on_next_iteration() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
         subject.panRight()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 1, 0, 0),
-            row(0, 1, 0, 0),
-            row(0, 1, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 1, 0, 0),
+                row(0, 1, 0, 0),
+                row(0, 1, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(1, 1, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(1, 1, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_up_moves_one_down_on_next_iteration() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
         subject.start()
 
         subject.panUp()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_down_moves_one_up_on_next_iteration() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = -1),
-            Coordinate(x = 0, y = -1),
-            Coordinate(x = 1, y = -1)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = -1),
+                    Coordinate(x = 0, y = -1),
+                    Coordinate(x = 1, y = -1)
+                )
+            )
+        )
 
         subject.start()
 
         subject.panDown()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         scheduler.advance(milliseconds = 100)
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_left_works_when_not_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -2, y = 0),
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -2, y = 0),
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(1, 1, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(1, 1, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.panLeft()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_right_works_when_not_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.panRight()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(1, 1, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(1, 1, 1, 0),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_up_works_when_not_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.panUp()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
     fun pan_down_works_when_not_running() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = -1),
-            Coordinate(x = 0, y = -1),
-            Coordinate(x = 1, y = -1)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = -1),
+                    Coordinate(x = 0, y = -1),
+                    Coordinate(x = 1, y = -1)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.panDown()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
     }
 
     @Test
@@ -680,17 +1005,23 @@ class GameOfLifeViewModelTest {
 
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = 1, y = 1),
-            Coordinate(x = 1, y = 0),
-            Coordinate(x = 0, y = 1),
-            Coordinate(x = 0, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = 1, y = 1),
+                    Coordinate(x = 1, y = 0),
+                    Coordinate(x = 0, y = 1),
+                    Coordinate(x = 0, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 1),
-            row(0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 1),
+                row(0, 0)
+            )
+        )
     }
 
     @Test
@@ -698,91 +1029,145 @@ class GameOfLifeViewModelTest {
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
         }
     }
 
     @Test
     fun next_moves_plane_to_the_next_step_then_stops() {
-        subject.setPlane(HashSetPlane(setOf(
-            Coordinate(x = -1, y = 0),
-            Coordinate(x = 0, y = 0),
-            Coordinate(x = 1, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
-
-        subject.next()
-
-        assertCanvasEqual(grid(
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
 
         subject.next()
 
-        assertCanvasEqual(grid(
-            row(0, 0, 0, 0),
-            row(0, 1, 1, 1),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
-        ))
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 1, 0),
+                row(0, 0, 0, 0)
+            )
+        )
+
+        subject.next()
+
+        assertCanvasEqual(
+            grid(
+                row(0, 0, 0, 0),
+                row(0, 1, 1, 1),
+                row(0, 0, 0, 0),
+                row(0, 0, 0, 0)
+            )
+        )
+    }
+
+    @Test
+    fun next_sets_the_title_and_increments_the_generation_count() {
+
+        var setTitleCount = 0
+
+        subject.onSetStats {
+            setTitleCount++
+            assertEquals(expected = setTitleCount - 1, actual = it.generation)
+        }
+
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+
+                    Coordinate(x = -1, y = 0),
+                    Coordinate(x = 0, y = 0),
+                    Coordinate(x = 1, y = 0)
+                )
+            )
+        )
+
+        subject.next()
+
+        subject.next()
+
+        assertEquals(expected = 3, actual = setTitleCount)
     }
 
     @Test
     fun toggle_translates_the_canvas_coordinates_to_board_coordinates() {
         setDimensions(
-                boardHeight = 4,
-                boardWidth = 4,
-                canvasHeight = 8,
-                canvasWidth = 8
+            boardHeight = 4,
+            boardWidth = 4,
+            canvasHeight = 8,
+            canvasWidth = 8
         )
 
-        subject.setPlane(HashSetPlane(setOf(
-                Coordinate(x = 0, y = 0)
-        )))
+        subject.setPlane(
+            HashSetPlane(
+                setOf(
+                    Coordinate(x = 0, y = 0)
+                )
+            )
+        )
 
-        assertCanvasEqual(grid(
+        assertCanvasEqual(
+            grid(
                 row(0, 0, 0, 0),
                 row(0, 0, 1, 0),
                 row(0, 0, 0, 0),
                 row(0, 0, 0, 0)
-        ))
+            )
+        )
 
         subject.toggle(canvasX = 5.0, canvasY = 2.0)
         subject.toggle(canvasX = 3.0, canvasY = 4.0)
 
-        assertCanvasEqual(grid(
+        assertCanvasEqual(
+            grid(
                 row(0, 0, 0, 0),
                 row(0, 0, 0, 0),
                 row(0, 1, 0, 0),
                 row(0, 0, 0, 0)
-        ))
+            )
+        )
     }
 
     @Test
@@ -790,41 +1175,53 @@ class GameOfLifeViewModelTest {
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             start()
 
-            assertCanvasEqual(grid(
+            assertCanvasEqual(
+                grid(
                     row(1, 1),
                     row(0, 0)
-            ))
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
+            assertCanvasEqual(
+                grid(
                     row(0, 1),
                     row(0, 1)
-            ))
+                )
+            )
 
             stop()
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
+            assertCanvasEqual(
+                grid(
                     row(0, 1),
                     row(0, 1)
-            ))
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
+            assertCanvasEqual(
+                grid(
                     row(0, 1),
                     row(0, 1)
-            ))
+                )
+            )
         }
     }
 
@@ -834,41 +1231,53 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             slowDown()
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 200)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
         }
     }
 
@@ -879,41 +1288,53 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             repeat(20) { slowDown() }
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 999)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 1)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 1000)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
         }
     }
 
@@ -923,41 +1344,53 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             speedUp()
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 50)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 50)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 50)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
         }
     }
 
@@ -968,41 +1401,53 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             repeat(20) { speedUp() }
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 8)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 8)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 8)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
         }
     }
 
@@ -1011,39 +1456,51 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             toggleRunning()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
         }
     }
 
@@ -1052,41 +1509,53 @@ class GameOfLifeViewModelTest {
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
-            setPlane(HashSetPlane(setOf(
-                Coordinate(x = -1, y = 0),
-                Coordinate(x = 0, y = 0),
-                Coordinate(x = 1, y = 0)
-            )))
+            setPlane(
+                HashSetPlane(
+                    setOf(
+                        Coordinate(x = -1, y = 0),
+                        Coordinate(x = 0, y = 0),
+                        Coordinate(x = 1, y = 0)
+                    )
+                )
+            )
 
             start()
 
-            assertCanvasEqual(grid(
-                row(1, 1),
-                row(0, 0)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(1, 1),
+                    row(0, 0)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             toggleRunning()
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(grid(
-                row(0, 1),
-                row(0, 1)
-            ))
+            assertCanvasEqual(
+                grid(
+                    row(0, 1),
+                    row(0, 1)
+                )
+            )
         }
     }
 

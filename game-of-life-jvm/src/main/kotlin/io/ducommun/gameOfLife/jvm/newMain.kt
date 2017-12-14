@@ -1,5 +1,7 @@
 package io.ducommun.gameOfLife.jvm
 
+import io.ducommun.gameOfLife.*
+import io.ducommun.gameOfLife.Presets.BREEDER_ONE
 import io.ducommun.gameOfLife.Presets.MAX
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel.Stats
@@ -11,26 +13,28 @@ import kotlin.reflect.KClass
 
 fun main(args: Array<String>) = launch<GameOfLifeWithViewModel>(args)
 
+val boardDimension = 2048
+val canvasDimension = 1024
+
 class GameOfLifeView : View() {
 
-    private val image = WritableImage(1024, 1024)
-
-    val game = GameOfLifeViewModel(
-        scheduler = CoroutineScheduler(),
-        canvasWidth = 1024,
-        canvasHeight = 1024,
-        initialBoardWidth = 512,
-        initialBoardHeight = 512,
-        aliveColor = 0xff7A3433L.toInt(),
-        deadColor = 0xffC1D5ECL.toInt(),
-        initialFps = 60
+    private val image = WritableImage(canvasDimension, canvasDimension)
+    private val game = GameOfLifeViewModel(
+            scheduler = CoroutineScheduler(),
+            canvasWidth = canvasDimension,
+            canvasHeight = canvasDimension,
+            initialBoardWidth = boardDimension,
+            initialBoardHeight = boardDimension,
+            aliveColor = 0xFF_00_00_00.toInt() + Colors.LIGHT_YELLOW,
+            deadColor = 0xFF_00_00_00.toInt() + Colors.FLAT_BLACK,
+            initialFps = 60,
+            useGradient = true
     ).apply {
-
-        setPlane(MAX)
 
         onDraw(this@GameOfLifeView::draw)
         onDrawDiff(this@GameOfLifeView::drawDiff)
         onSetStats(this@GameOfLifeView::setTitle)
+        onGetTimeMillis { System.currentTimeMillis() }
 
         shortcut("left") {
             panLeft()
@@ -38,7 +42,7 @@ class GameOfLifeView : View() {
         shortcut("right") {
             panRight()
         }
-        shortcut("up"){
+        shortcut("up") {
             panUp()
         }
         shortcut("down") {
@@ -62,6 +66,8 @@ class GameOfLifeView : View() {
         shortcut("shift+s") {
             slowDown()
         }
+
+        setPlane(MAX)
     }
 
     override val root = vbox {
@@ -74,21 +80,21 @@ class GameOfLifeView : View() {
 
     private fun draw(canvas: IntArray) {
         image.pixelWriter.setPixels(
-            0, 0,
-            1024, 1024,
-            PixelFormat.getIntArgbInstance(),
-            canvas,
-            0, 1024)
+                0, 0,
+                canvasDimension, canvasDimension,
+                PixelFormat.getIntArgbInstance(),
+                canvas,
+                0, canvasDimension)
     }
 
     private fun drawDiff(rects: List<Rect>) {
         rects.forEach { rect ->
             image.pixelWriter.setPixels(
-                rect.x, rect.y,
-                rect.width, rect.height,
-                PixelFormat.getIntArgbInstance(),
-                IntArray(rect.width * rect.height) { rect.color },
-                0, rect.width
+                    rect.x, rect.y,
+                    rect.width, rect.height,
+                    PixelFormat.getIntArgbInstance(),
+                    IntArray(rect.width * rect.height) { rect.color },
+                    0, rect.width
             )
         }
     }
@@ -96,13 +102,10 @@ class GameOfLifeView : View() {
     private fun setTitle(stats: Stats) {
         title = stats.run {
             val boardInfo = "$boardWidth x $boardHeight at (${origin.x},${origin.y})"
-            val gameInfo = "$cellCount alive at generation $generation in $elapsedSeconds seconds running"
+            val gameInfo = "$cellCount alive cells at generation $generation after ${elapsedSeconds / 1000} seconds running"
+            val base = "$boardInfo :: $gameInfo"
 
-            if (running) {
-                "$boardInfo, $gameInfo"
-            } else {
-                "$fps frames per second, $boardInfo, $gameInfo"
-            }
+            if (running) "${Math.floor(fps * 100)/ 100} frames per second :: $base" else base
         }
     }
 }

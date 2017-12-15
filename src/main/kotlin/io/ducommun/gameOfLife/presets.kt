@@ -6,8 +6,10 @@ expect object PresetStrings {
     val ACORN: String
     val BREEDER_ONE: String
     val FERMAT_PRIME_CALCULATOR: String
+    val FROTHING_PUFFER: String
     val INFINITE_GLIDER_HOTEL_FOUR: String
     val MAX: String
+    val NOAHS_ARK: String
     val R_PENTOMINO: String
     val R_PENTOMINO_SYNTHESIS: String
     val SPAGHETTI_MONSTER: String
@@ -24,8 +26,10 @@ object Presets {
     val ACORN: Plane by lazy { parser.parseString(PresetStrings.ACORN) }
     val BREEDER_ONE: Plane by lazy { parser.parseString(PresetStrings.BREEDER_ONE) }
     val FERMAT_PRIME_CALCULATOR: Plane by lazy { parser.parseString(PresetStrings.FERMAT_PRIME_CALCULATOR) }
+    val FROTHING_PUFFER: Plane by lazy { parser.parseString(PresetStrings.FROTHING_PUFFER) }
     val INFINITE_GLIDER_HOTEL_FOUR: Plane by lazy { parser.parseString(PresetStrings.INFINITE_GLIDER_HOTEL_FOUR) }
     val MAX: Plane by lazy { parser.parseString(PresetStrings.MAX) }
+    val NOAHS_ARK: Plane by lazy { parser.parseString(PresetStrings.NOAHS_ARK) }
     val R_PENTOMINO: Plane by lazy { parser.parseString(PresetStrings.R_PENTOMINO) }
     val R_PENTOMINO_SYNTHESIS: Plane by lazy { parser.parseString(PresetStrings.R_PENTOMINO_SYNTHESIS) }
     val SPAGHETTI_MONSTER: Plane by lazy { parser.parseString(PresetStrings.SPAGHETTI_MONSTER) }

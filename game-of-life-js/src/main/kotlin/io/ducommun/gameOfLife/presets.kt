@@ -1,9 +1,5 @@
 package io.ducommun.gameOfLife
 
-import org.w3c.fetch.Response
-import org.w3c.xhr.XMLHttpRequest
-import kotlin.browser.window
-
 actual object PresetStrings {
     actual val R_PENTOMINO: String by lazy {
        """#N R-pentomino
@@ -305,5 +301,27 @@ o${'$'}6b2o4b3o4b2o${'$'}6b2o3bo3bo3b2o${'$'}5b3o4b3o4b3o${'$'}3b2o17b2o${'$'}2b
         6o2b6o2bob4o${'$'}7b2obo5bobo3bo2b2o3bo2b2o3bo4bobo2bo${'$'}10bob2o2bo2bo4bo2bo
         4bo2bo8bo4b${'$'}10b2obo3b2o6b2o6b2o!
     """.trimIndent()
+    }
+    actual val NOAHS_ARK: String by lazy {
+        """#N Noah's ark
+#O Charles Corderman
+#C A diagonal period 1344 c/12 puffer made up of two switch engines that was found in 1971.
+#C www.conwaylife.com/wiki/index.php?title=Noah's_ark
+x = 15, y = 15, rule = 23/3
+10bobo2b${'$'}9bo5b${'$'}10bo2bob${'$'}12b3o6${'$'}bo13b${'$'}obo12b2${'$'}o2bo11b${'$'}2b2o11b${'$'}3bo!"""
+    }
+    actual val FROTHING_PUFFER: String by lazy {
+        """#N Frothing puffer
+#O Paul Tooke, April 2001
+#C A c/2 puffer with a seemingly unstable back end that nevertheless
+#C survives.
+#C http://www.conwaylife.com/wiki/Frothing_puffer
+x = 33, y = 23, rule = B3/S23
+7bo17bo${'$'}6b3o15b3o${'$'}5b2o4b3o5b3o4b2o${'$'}3b2obo2b3o2bo3bo2b3o2bob2o${'$'}4bobo2bo
+bo3bobo3bobo2bobo${'$'}b2obobobobo4bobo4bobobobob2o${'$'}b2o3bobo4bo5bo4bobo3b2o
+${'$'}b3obo3bo4bobobo4bo3bob3o${'$'}2o9b2obobobob2o9b2o${'$'}12bo7bo${'$'}9b2obo7bob2o${'$'}10b
+o11bo${'$'}7b2obo11bob2o${'$'}7b2o15b2o${'$'}7bobobob3ob3obobobo${'$'}6b2o3bo3bobo3bo3b2o${'$'}
+6bo2bo3bobobobo3bo2bo${'$'}9b2o4bobo4b2o${'$'}5b2o4bo3bobo3bo4b2o${'$'}9bob2obo3bob2o
+bo${'$'}10bobobobobobobo${'$'}12bo2bobo2bo${'$'}11bobo5bobo!"""
     }
 }

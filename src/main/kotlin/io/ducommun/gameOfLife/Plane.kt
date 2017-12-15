@@ -16,8 +16,8 @@ interface Plane {
 }
 
 data class PlaneDiff(
-        val revive: Set<Coordinate>,
-        val kill: Set<Coordinate>
+    val revive: Set<Coordinate>,
+    val kill: Set<Coordinate>
 )
 
 interface MutablePlane {

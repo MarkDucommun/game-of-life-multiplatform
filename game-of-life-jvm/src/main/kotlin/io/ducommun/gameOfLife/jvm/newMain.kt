@@ -1,6 +1,8 @@
 package io.ducommun.gameOfLife.jvm
 
 import io.ducommun.gameOfLife.Colors
+import io.ducommun.gameOfLife.Presets.BREEDER_ONE
+import io.ducommun.gameOfLife.Presets.EMPTY
 import io.ducommun.gameOfLife.Presets.NOAHS_ARK
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel.Stats
@@ -15,7 +17,7 @@ fun main(args: Array<String>) = launch<GameOfLifeWithViewModel>(args)
 
 val boardDimension = 2048
 val canvasDimension = 1024
-val plane = NOAHS_ARK
+val plane = BREEDER_ONE
 
 class GameOfLifeView : View() {
 

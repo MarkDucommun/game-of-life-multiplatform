@@ -193,7 +193,6 @@ class GameOfLifeViewModel(
 
             if (running) {
 
-//                if (drawOnNextIteration || boardWidth > canvasWidth) {
                 if (drawOnNextIteration) {
 
                     drawOnNextIteration = false
@@ -447,6 +446,11 @@ class GameOfLifeViewModel(
     }
 
     private fun resetCanvas() {
-        if (running) drawOnNextIteration = true else render()
+        if (running)
+            drawOnNextIteration = true
+        else {
+            render()
+            updateStats()
+        }
     }
 }

@@ -1,5 +1,7 @@
 package io.ducommun.gameOfLife
 
+import io.ducommun.gameOfLife.Presets.BREEDER_ONE
+import io.ducommun.gameOfLife.Presets.EMPTY
 import io.ducommun.gameOfLife.Presets.INFINITE_GLIDER_HOTEL_FOUR
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Scheduler
@@ -19,7 +21,7 @@ fun main(args: Array<String>) {
 
     val canvasDimension = 1024
     val boardDimension = 4096
-    val plane = INFINITE_GLIDER_HOTEL_FOUR
+    val plane = BREEDER_ONE
     val deadColor = Colors.FLAT_BLACK
     val aliveColor = Colors.LIGHT_YELLOW
 
@@ -117,12 +119,13 @@ fun main(args: Array<String>) {
         )
 
         canvas.addEventListener(
-            type = "click", callback = { rawEvent ->
+            type = "click",
+            callback = { rawEvent ->
 
-            val event = rawEvent as MouseEvent
+                val event = rawEvent as MouseEvent
 
-            toggle(canvasX = event.pageX.toDouble(), canvasY = event.pageY.toDouble())
-        }
+                toggle(canvasX = event.offsetX, canvasY = event.offsetY)
+            }
         )
 
         setPlane(plane)

@@ -2,6 +2,7 @@ package io.ducommun.gameOfLife.viewModel
 
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
+import kotlin.jvm.javaClass
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -144,7 +145,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun sets_the_title_when_plane_is_set() {
-        var titleSet: Boolean = false
+        var titleCount = 0
 
         subject.onSetStats { stats ->
 
@@ -162,13 +163,37 @@ class GameOfLifeViewModelTest {
                 actual = stats
             )
 
-            titleSet = true
+            titleCount++
         }
 
         subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
 
-        assertTrue { titleSet }
+        assertEquals(expected = 1, actual = titleCount)
 
+    }
+
+    @Test
+    fun sets_the_title_when_we_zoom_in() {
+
+        listOf(
+            subject::zoomIn to "zoomIn",
+            subject::zoomOut to "zoomOut",
+            subject::panLeft to "panLeft",
+            subject::panRight to "panRight",
+            subject::panUp to "panUp",
+            subject::panDown to "panDown"
+        ).forEach { (fnThatUpdatesStats, functionName) ->
+
+            subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+
+            var titleCount = 0
+
+            subject.onSetStats { stats -> titleCount++ }
+
+            fnThatUpdatesStats.invoke()
+
+            assertEquals(expected = 1, actual = titleCount, message = "Function $functionName responsible for failure")
+        }
     }
 
     @Test
@@ -1106,13 +1131,6 @@ class GameOfLifeViewModelTest {
     @Test
     fun next_sets_the_title_and_increments_the_generation_count() {
 
-        var setTitleCount = 0
-
-        subject.onSetStats {
-            setTitleCount++
-            assertEquals(expected = setTitleCount - 1, actual = it.generation)
-        }
-
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -1124,11 +1142,18 @@ class GameOfLifeViewModelTest {
             )
         )
 
-        subject.next()
+        var setTitleCount = 0
+
+        subject.onSetStats {
+            setTitleCount++
+            assertEquals(expected = setTitleCount, actual = it.generation)
+        }
 
         subject.next()
 
-        assertEquals(expected = 3, actual = setTitleCount)
+        subject.next()
+
+        assertEquals(expected = 2, actual = setTitleCount)
     }
 
     @Test

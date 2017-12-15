@@ -44,6 +44,24 @@ class FakeScheduler : Scheduler {
     }
 }
 
+
+
+object TestActions : Actions {
+
+    var internalDrawPlane: (IntArray) -> Unit = {}
+    var internalDrawPlaneDiff: (List<Rectangle>) -> Unit = {}
+    var internalUpdateStats: (GameOfLifeViewModel.Stats) -> Unit = {}
+    var internalCurrentTime: () -> Long = { 0 }
+
+    override val drawPlane: (IntArray) -> Unit get() = internalDrawPlane
+
+    override val drawPlaneDiff: (List<Rectangle>) -> Unit get() = internalDrawPlaneDiff
+
+    override val updateStats: (GameOfLifeViewModel.Stats) -> Unit get() = internalUpdateStats
+
+    override val currentTime: () -> Long get() = internalCurrentTime
+}
+
 class GameOfLifeViewModelTest {
 
     val scheduler = FakeScheduler()
@@ -55,18 +73,30 @@ class GameOfLifeViewModelTest {
 
     var subject = GameOfLifeViewModel(
         scheduler = scheduler,
-        canvasWidth = canvasWidth,
-        canvasHeight = canvasHeight,
         initialBoardWidth = 4,
         initialBoardHeight = 4,
-        aliveColor = aliveColor,
-        deadColor = deadColor,
-        initialFps = 10
+        state = MutableViewState(
+            canvas = GameOfLifeViewModel.Dimensions(
+                width = canvasWidth,
+                height = canvasHeight
+            ),
+            board = GameOfLifeViewModel.Dimensions(
+                width = 4,
+                height = 4
+            ),
+            fps = 10,
+            aliveColor = aliveColor,
+            deadColor = deadColor,
+            useGradient = false
+        ),
+        actions = TestActions
     )
 
-    var canvas = IntArray(canvasWidth * canvasHeight)
+    var localCanvas = IntArray(canvasWidth * canvasHeight)
 
-    fun row(vararg cells: Int): Iterable<Int> {
+
+
+    private fun row(vararg cells: Int): Iterable<Int> {
         val deadCell = IntArray(canvasWidth / cells.size) { deadColor }
             .asIterable()
         val aliveCell = IntArray(canvasWidth / cells.size) { aliveColor }
@@ -81,7 +111,7 @@ class GameOfLifeViewModelTest {
         }
     }
 
-    fun grid(vararg rows: Iterable<Int>): IntArray =
+    private fun grid(vararg rows: Iterable<Int>): IntArray =
         rows.flatMap { row -> (1..canvasHeight / rows.size).flatMap { row } }.toIntArray()
 
     private fun setDimensions(
@@ -94,29 +124,35 @@ class GameOfLifeViewModelTest {
         this.canvasWidth = canvasWidth
         this.canvasHeight = canvasHeight
 
-        canvas = IntArray(canvasWidth * canvasHeight)
+        localCanvas = IntArray(canvasWidth * canvasHeight)
 
         subject = GameOfLifeViewModel(
             scheduler = scheduler,
-            canvasWidth = canvasWidth,
-            canvasHeight = canvasHeight,
             initialBoardWidth = boardWidth,
             initialBoardHeight = boardHeight,
-            aliveColor = aliveColor,
-            deadColor = deadColor,
-            initialFps = 10
+            state = MutableViewState(
+                canvas = GameOfLifeViewModel.Dimensions(
+                    width = canvasWidth,
+                    height = canvasHeight
+                ),
+                board = GameOfLifeViewModel.Dimensions(
+                    width = boardWidth,
+                    height = boardHeight
+                ),
+                fps = 10,
+                aliveColor = aliveColor,
+                deadColor = deadColor,
+                useGradient = false
+            )
         ).apply {
-            onDraw {
-                assertEquals(canvasWidth * canvasHeight, it.size, "Unexpected canvas size")
-                canvas = it
-            }
+            
             onDrawDiff { rects ->
                 for (rect in rects) {
                     assertTrue("x=${rect.x} out of range") { rect.x in 0..canvasWidth - rect.width }
                     assertTrue("y=${rect.y} out of range") { rect.y in 0..canvasHeight - rect.height }
                     for (x in rect.x until rect.x + rect.width)
                         for (y in rect.y until rect.y + rect.height)
-                            canvas[x + canvasWidth * y] = rect.color
+                            localCanvas[x + canvasWidth * y] = rect.color
                 }
             }
         }
@@ -124,7 +160,13 @@ class GameOfLifeViewModelTest {
 
     @BeforeTest
     fun setUp() {
+
         setDimensions()
+
+        TestActions.internalDrawPlane = {
+            assertEquals(canvasWidth * canvasHeight, it.size, "Unexpected canvas size")
+            localCanvas = it
+        }
     }
 
     @Test
@@ -1563,7 +1605,7 @@ class GameOfLifeViewModelTest {
         for (y in 0 until canvasHeight) for (x in 0 until canvasWidth) {
             val index = x + canvasWidth * y
             val expected = expectedCanvas[index]
-            val actual = canvas[index]
+            val actual = localCanvas[index]
             if (expected != actual) assertEquals(
                 expected = expected,
                 actual = actual,

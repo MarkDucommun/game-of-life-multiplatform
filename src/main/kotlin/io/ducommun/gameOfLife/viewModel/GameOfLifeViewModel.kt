@@ -1,37 +1,62 @@
 package io.ducommun.gameOfLife.viewModel
 
-import io.ducommun.gameOfLife.Coordinate
-import io.ducommun.gameOfLife.HashSetPlane
-import io.ducommun.gameOfLife.Plane
-import io.ducommun.gameOfLife.PlaneDiff
+import io.ducommun.gameOfLife.*
+import io.ducommun.gameOfLife.Presets.EMPTY
 
-interface Scheduler {
-    fun immediately(task: () -> Unit)
-    fun delay(milliseconds: Int, task: () -> Unit)
-    fun onUIThread(task: () -> Unit)
-}
-
-data class Rect(
-    val x: Int,
-    val y: Int,
-    val width: Int,
-    val height: Int,
-    val color: Int
-)
-
-class GameOfLifeViewModel(
+class GameOfLifeViewModel internal constructor(
     private val scheduler: Scheduler,
-    private val canvasWidth: Int,
-    private val canvasHeight: Int,
     initialBoardWidth: Int,
     initialBoardHeight: Int,
-    private val aliveColor: Int,
-    private val deadColor: Int,
-    initialFps: Int,
-    private val useGradient: Boolean = false
-) {
+    private var state: ViewState,
+    private val actions: Actions
+) : ViewState by state, Actions by actions {
 
-    private var fps = initialFps
+    data class Settings(
+        val plane: Plane = EMPTY,
+        val canvas: Dimensions,
+        val board: Dimensions,
+        val colors: Colors,
+        val framesPerSecond: Int = 60
+    )
+
+    data class Colors(
+        val alive: Int,
+        val dead: Int,
+        val gradient: Boolean = false
+    )
+
+    data class Dimensions(
+        val width: Int,
+        val height: Int
+    )
+
+    companion object {
+
+        fun create(
+            settings: Settings,
+            actions: Actions,
+            scheduler: Scheduler
+        ): GameOfLifeViewModel {
+
+            return GameOfLifeViewModel(
+                scheduler = scheduler,
+                initialBoardHeight = settings.board.height,
+                initialBoardWidth = settings.board.width,
+                state = MutableViewState(
+                    fps = settings.framesPerSecond,
+                    canvas = settings.canvas,
+                    board = settings.board,
+                    aliveColor = settings.colors.alive,
+                    deadColor = settings.colors.dead,
+                    useGradient = settings.colors.gradient
+                ),
+                actions = actions
+            ).apply {
+
+                setPlane(settings.plane)
+            }
+        }
+    }
 
     private var boardWidth = initialBoardWidth
     private var boardHeight = initialBoardHeight
@@ -39,16 +64,11 @@ class GameOfLifeViewModel(
     private var xTranslation = 0
     private var yTranslation = 0
 
-    private var draw: (IntArray) -> Unit = {}
-    private var drawDiff: (List<Rect>) -> Unit = {}
-    private var setStats: (Stats) -> Unit = {}
-    private var getTimeMillis: () -> Long = { 0L }
-
     private var plane = HashSetPlane(setOf()) as Plane
 
     private var drawOnNextIteration = false
     private var running = false
-    private val cellSize get() = canvasWidth / boardWidth
+    private val cellSize get() = canvas.width / boardWidth
 
     private var gradient = emptyList<Int>()
 
@@ -66,25 +86,9 @@ class GameOfLifeViewModel(
 
         updateStats()
 
-        if (boardWidth > canvasWidth) recalculateGradient()
+        if (boardWidth > canvas.width) recalculateGradient()
 
         render()
-    }
-
-    fun onDraw(draw: (IntArray) -> Unit) {
-        this.draw = draw
-    }
-
-    fun onDrawDiff(drawDiff: (List<Rect>) -> Unit) {
-        this.drawDiff = drawDiff
-    }
-
-    fun onSetStats(setStats: (Stats) -> Unit) {
-        this.setStats = setStats
-    }
-
-    fun onGetTimeMillis(getTimeMillis: () -> Long) {
-        this.getTimeMillis = getTimeMillis
     }
 
     fun toggle(canvasX: Double, canvasY: Double) {
@@ -119,13 +123,13 @@ class GameOfLifeViewModel(
         if (running) return
 
         running = true
-        startTime = getTimeMillis()
+        startTime = currentTime()
 
         loop()
     }
 
     fun stop() {
-        elapsedTime += getTimeMillis() - startTime
+        elapsedTime += currentTime() - startTime
         running = false
     }
 
@@ -135,7 +139,7 @@ class GameOfLifeViewModel(
         boardWidth /= 2
         boardHeight /= 2
 
-        if (boardWidth > canvasWidth) recalculateGradient()
+        if (boardWidth > canvas.width) recalculateGradient()
         resetCanvas()
     }
 
@@ -143,7 +147,7 @@ class GameOfLifeViewModel(
         boardWidth *= 2
         boardHeight *= 2
 
-        if (boardWidth > canvasWidth) recalculateGradient()
+        if (boardWidth > canvas.width) recalculateGradient()
         resetCanvas()
     }
 
@@ -193,7 +197,6 @@ class GameOfLifeViewModel(
 
             if (running) {
 
-//                if (drawOnNextIteration || boardWidth > canvasWidth) {
                 if (drawOnNextIteration) {
 
                     drawOnNextIteration = false
@@ -217,9 +220,9 @@ class GameOfLifeViewModel(
 
     private fun render() {
 
-        val planePixelArray = IntArray(canvasWidth * canvasHeight)
+        val planePixelArray = IntArray(canvas.width * canvas.height)
 
-        if (boardWidth > canvasWidth) {
+        if (boardWidth > canvas.width) {
 
             planePixelArray.renderBoardLargerThanCanvas()
 
@@ -229,21 +232,21 @@ class GameOfLifeViewModel(
         }
 
         scheduler.onUIThread {
-            draw(planePixelArray)
+            drawPlane(planePixelArray)
         }
     }
 
     private fun renderDiff(diff: PlaneDiff) {
-        val rectsToChange = if (boardWidth > canvasWidth) {
+        val rectsToChange = if (boardWidth > canvas.width) {
             diff.rectsToChangeBoardLargerThanCanvas()
         } else {
             diff.rectsToChangeBoardSmallerThanCanvas()
         }
 
-        scheduler.onUIThread { drawDiff(rectsToChange) }
+        scheduler.onUIThread { drawPlaneDiff(rectsToChange) }
     }
 
-    private fun PlaneDiff.rectsToChangeBoardSmallerThanCanvas(): List<Rect> =
+    private fun PlaneDiff.rectsToChangeBoardSmallerThanCanvas(): List<Rectangle> =
         revive
             .filterInBounds()
             .map { it.asRect(aliveColor) } +
@@ -251,10 +254,10 @@ class GameOfLifeViewModel(
             .filterInBounds()
             .map { it.asRect(deadColor) }
 
-    private fun PlaneDiff.rectsToChangeBoardLargerThanCanvas(): List<Rect> {
+    private fun PlaneDiff.rectsToChangeBoardLargerThanCanvas(): List<Rectangle> {
 
-        val widthRatio = boardWidth / canvasWidth
-        val heightRatio = boardHeight / canvasHeight
+        val widthRatio = boardWidth / canvas.width
+        val heightRatio = boardHeight / canvas.height
 
         val changedBoardCoordinates = (revive + kill).filter { coordinate ->
             coordinate.x in xTranslation - boardWidth / 2 until xTranslation + boardWidth / 2 &&
@@ -293,7 +296,7 @@ class GameOfLifeViewModel(
                 if (plane.alive(Coordinate(x = boardX, y = boardY))) aliveCount += 1
             }
 
-            Rect(
+            Rectangle(
                 x = canvasCoordinate.x.toInt(),
                 y = canvasCoordinate.y.toInt(),
                 width = 1,
@@ -309,17 +312,17 @@ class GameOfLifeViewModel(
 
     private fun IntArray.renderBoardLargerThanCanvas() {
 
-        for (x in 0 until canvasWidth) for (y in 0 until canvasHeight) {
+        for (x in 0 until canvas.width) for (y in 0 until canvas.height) {
 
             val boardCoordinate = translator.toBoard(
                 Coordinate(
-                    x = x * boardWidth / canvasWidth,
-                    y = y * boardHeight / canvasHeight
+                    x = x * boardWidth / canvas.width,
+                    y = y * boardHeight / canvas.height
                 )
             )
 
-            val xRange = boardCoordinate.x until boardCoordinate.x + boardWidth / canvasWidth
-            val yRange = boardCoordinate.y downTo boardCoordinate.y - boardHeight / canvasHeight + 1
+            val xRange = boardCoordinate.x until boardCoordinate.x + boardWidth / canvas.width
+            val yRange = boardCoordinate.y downTo boardCoordinate.y - boardHeight / canvas.height + 1
 
             var aliveCount = 0
 
@@ -328,12 +331,12 @@ class GameOfLifeViewModel(
             }
 
             if (useGradient) {
-                this[x + y * canvasWidth] = gradient[aliveCount]
+                this[x + y * canvas.width] = gradient[aliveCount]
             } else {
                 if (aliveCount > 0) {
-                    this[x + y * canvasWidth] = aliveColor
+                    this[x + y * canvas.width] = aliveColor
                 } else {
-                    this[x + y * canvasWidth] = deadColor
+                    this[x + y * canvas.width] = deadColor
                 }
             }
         }
@@ -357,7 +360,7 @@ class GameOfLifeViewModel(
         val yRange = yCellMin until yCellMax
 
         for (boardX in xRange) for (boardY in yRange) {
-            this[boardX + canvasWidth * boardY] = if (alive) aliveColor else deadColor
+            this[boardX + canvas.width * boardY] = if (alive) aliveColor else deadColor
         }
     }
 
@@ -381,10 +384,10 @@ class GameOfLifeViewModel(
 
     private fun updateStats() {
 
-        val now = getTimeMillis()
+        val now = currentTime()
 
         updateFps(now)
-        scheduler.onUIThread { setStats(currentStats(now)) }
+        scheduler.onUIThread { updateStats(currentStats(now)) }
         lastSetTitle = now
     }
 
@@ -414,7 +417,7 @@ class GameOfLifeViewModel(
     }
 
     private fun recalculateGradient() {
-        val cellDimension = boardWidth / canvasWidth
+        val cellDimension = boardWidth / canvas.width
         val numberOfColors = cellDimension * cellDimension
 
         gradient = (0..numberOfColors).map { aliveCount ->
@@ -429,17 +432,17 @@ class GameOfLifeViewModel(
     }
 
     private fun Iterable<Coordinate>.filterInBounds(): Iterable<Coordinate> = filter {
-        val canvas = translator.toCanvas(it)
-        canvas.x * (canvasWidth / boardWidth) in 0 until canvasWidth &&
-        canvas.y * (canvasHeight / boardHeight) in 0 until canvasHeight
+        val canvasCoordinates = translator.toCanvas(it)
+        canvasCoordinates.x * (canvas.width / boardWidth) in 0 until canvas.width &&
+        canvasCoordinates.y * (canvas.height / boardHeight) in 0 until canvas.height
     }
 
-    private fun Coordinate.asRect(color: Int): Rect {
+    private fun Coordinate.asRect(color: Int): Rectangle {
 
-        val canvas = translator.toCanvas(this)
-        return Rect(
-            x = canvas.x * cellSize,
-            y = canvas.y * cellSize,
+        val canvasCoordinates = translator.toCanvas(this)
+        return Rectangle(
+            x = canvasCoordinates.x * cellSize,
+            y = canvasCoordinates.y * cellSize,
             width = cellSize,
             height = cellSize,
             color = color

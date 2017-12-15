@@ -4,7 +4,7 @@ import io.ducommun.gameOfLife.Colors
 import io.ducommun.gameOfLife.Presets.NOAHS_ARK
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel.Stats
-import io.ducommun.gameOfLife.viewModel.Rect
+import io.ducommun.gameOfLife.viewModel.Rectangle
 import javafx.scene.image.PixelFormat
 import javafx.scene.image.WritableImage
 import tornadofx.*
@@ -16,27 +16,38 @@ fun main(args: Array<String>) = launch<GameOfLifeWithViewModel>(args)
 val boardDimension = 2048
 val canvasDimension = 1024
 val plane = NOAHS_ARK
+val aliveColor = Colors.LIGHT_YELLOW
+val deadColor = Colors.FLAT_BLACK
 
 class GameOfLifeView : View() {
 
     private val image = WritableImage(canvasDimension, canvasDimension)
-    private val game = GameOfLifeViewModel(
-        scheduler = CoroutineScheduler(),
-        canvasWidth = canvasDimension,
-        canvasHeight = canvasDimension,
-        initialBoardWidth = boardDimension,
-        initialBoardHeight = boardDimension,
-        aliveColor = 0xFF_00_00_00.toInt() + Colors.LIGHT_YELLOW,
-        deadColor = 0xFF_00_00_00.toInt() + Colors.FLAT_BLACK,
-        initialFps = 60,
-        useGradient = true
+
+    private val game = GameOfLifeViewModel.create(
+        settings = GameOfLifeViewModel.Settings(
+            plane = plane,
+            canvas = GameOfLifeViewModel.Dimensions(
+                width = canvasDimension,
+                height = canvasDimension
+            ),
+            board = GameOfLifeViewModel.Dimensions(
+                width = boardDimension,
+                height = boardDimension
+            ),
+            colors = GameOfLifeViewModel.Colors(
+                alive = 0xFF_00_00_00.toInt() + aliveColor,
+                dead =  0xFF_00_00_00.toInt() + deadColor,
+                gradient = true
+            )
+        ),
+        actions = GameOfLifeViewModel.Actions(
+            drawPlane = this@GameOfLifeView::draw,
+            drawPlaneDiff = this@GameOfLifeView::drawDiff,
+            updateStats = this@GameOfLifeView::setTitle,
+            currentTime = { System.currentTimeMillis() }
+        ),
+        scheduler = CoroutineScheduler
     ).apply {
-
-        onDraw(this@GameOfLifeView::draw)
-        onDrawDiff(this@GameOfLifeView::drawDiff)
-        onSetStats(this@GameOfLifeView::setTitle)
-        onGetTimeMillis { System.currentTimeMillis() }
-
         shortcut("left") { panLeft() }
         shortcut("right") { panRight() }
         shortcut("up") { panUp() }
@@ -48,8 +59,6 @@ class GameOfLifeView : View() {
         shortcut("s") { speedUp() }
         shortcut("shift+s") { slowDown() }
         shortcut("r") { setPlane(plane) }
-
-        setPlane(plane)
     }
 
     override val root = vbox {
@@ -70,8 +79,8 @@ class GameOfLifeView : View() {
         )
     }
 
-    private fun drawDiff(rects: List<Rect>) {
-        rects.forEach { rect ->
+    private fun drawDiff(rectangles: List<Rectangle>) {
+        rectangles.forEach { rect ->
             image.pixelWriter.setPixels(
                 rect.x, rect.y,
                 rect.width, rect.height,

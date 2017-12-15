@@ -5,7 +5,7 @@ import javafx.application.Platform
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 
-class CoroutineScheduler : Scheduler {
+object CoroutineScheduler : Scheduler {
 
     override fun immediately(task: () -> Unit) {
         launch { task() }

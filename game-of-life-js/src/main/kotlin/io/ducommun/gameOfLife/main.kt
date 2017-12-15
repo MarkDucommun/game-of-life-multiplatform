@@ -2,6 +2,8 @@ package io.ducommun.gameOfLife
 
 import io.ducommun.gameOfLife.Presets.INFINITE_GLIDER_HOTEL_FOUR
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
+import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel.Stats
+import io.ducommun.gameOfLife.viewModel.Rectangle
 import io.ducommun.gameOfLife.viewModel.Scheduler
 import org.khronos.webgl.Uint8ClampedArray
 import org.w3c.dom.CanvasRenderingContext2D
@@ -46,90 +48,104 @@ fun main(args: Array<String>) {
     context.fillStyle = deadColorString
     context.fillRect(0.0, 0.0, canvasDimension.toDouble(), canvasDimension.toDouble())
 
-    GameOfLifeViewModel(
-        scheduler = BrowserScheduler(),
-        canvasWidth = canvasDimension,
-        canvasHeight = canvasDimension,
-        initialBoardWidth = boardDimension,
-        initialBoardHeight = boardDimension,
-        aliveColor = 0xFF_00_00_00.toInt() + aliveColor,
-        deadColor = 0xFF_00_00_00.toInt() + deadColor,
-        initialFps = 120,
-        useGradient = true
+    val draw = { pixels: IntArray ->
+        context.run {
+            val imageData = createImageData(canvasDimension.toDouble(), canvasDimension.toDouble())
+            val bytes = Uint8ClampedArray(canvasDimension * canvasDimension * 4)
+            pixels.forEachIndexed { index, pixel ->
+                bytes.asDynamic()[4 * index] = pixel.and(0xff0000).shr(16)
+                bytes.asDynamic()[4 * index + 1] = pixel.and(0xff00).shr(8)
+                bytes.asDynamic()[4 * index + 2] = pixel.and(0xff)
+                bytes.asDynamic()[4 * index + 3] = pixel.and(0xff000000L.toInt()).ushr(24)
+            }
+            imageData.data.set(bytes)
+            putImageData(imageData, 0.0, 0.0)
+        }
+    }
+
+    val drawDiff = { rectangles: List<Rectangle> ->
+        context.run {
+            rectangles.forEach { rect ->
+                val color = rect.color.and(0xffffff).asDynamic().toString(16)
+                fillStyle = "#$color"
+                fillRect(rect.x.toDouble(), rect.y.toDouble(), rect.width.toDouble(), rect.height.toDouble())
+            }
+        }
+    }
+
+    val updateStats = { stats: Stats ->
+        title.clear()
+        stats.run {
+            val boardInfo = "$xDimension x $yDimension at (${origin.x},${origin.y})"
+            val gameInfo = "$cellCount alive cells at generation $generation after ${elapsedSeconds / 1000} seconds running"
+            val base = "$boardInfo :: $gameInfo"
+
+            val message = if (running) "${floor(fps * 100) / 100} frames per second :: $base" else base
+
+            title.append(message.toUpperCase())
+        }
+    }
+
+    GameOfLifeViewModel.create(
+        settings = GameOfLifeViewModel.Settings(
+            plane = plane,
+            canvas = GameOfLifeViewModel.Dimensions(
+                width = canvasDimension,
+                height = canvasDimension
+            ),
+            board = GameOfLifeViewModel.Dimensions(
+                width = boardDimension,
+                height = boardDimension
+            ),
+            colors = GameOfLifeViewModel.Colors(
+                alive = 0xFF_00_00_00.toInt() + aliveColor,
+                dead = 0xFF_00_00_00.toInt() + deadColor,
+                gradient = true
+            )
+        ),
+        actions = GameOfLifeViewModel.Actions(
+            drawPlane = draw,
+            drawPlaneDiff = drawDiff,
+            updateStats = updateStats,
+            currentTime = { Date().getTime().toLong() }
+        ),
+        scheduler = BrowserScheduler
     ).run {
 
-        onDraw { pixels ->
-            context.run {
-                val imageData = createImageData(canvasDimension.toDouble(), canvasDimension.toDouble())
-                val bytes = Uint8ClampedArray(canvasDimension * canvasDimension * 4)
-                pixels.forEachIndexed { index, pixel ->
-                    bytes.asDynamic()[4 * index] = pixel.and(0xff0000).shr(16)
-                    bytes.asDynamic()[4 * index + 1] = pixel.and(0xff00).shr(8)
-                    bytes.asDynamic()[4 * index + 2] = pixel.and(0xff)
-                    bytes.asDynamic()[4 * index + 3] = pixel.and(0xff000000L.toInt()).ushr(24)
-                }
-                imageData.data.set(bytes)
-                putImageData(imageData, 0.0, 0.0)
-            }
-        }
-        onDrawDiff { rects ->
-            context.run {
-                rects.forEach { rect ->
-                    val color = rect.color.and(0xffffff).asDynamic().toString(16)
-                    fillStyle = "#$color"
-                    fillRect(rect.x.toDouble(), rect.y.toDouble(), rect.width.toDouble(), rect.height.toDouble())
-                }
-            }
-        }
-        onSetStats { stats ->
-            title.clear()
-            stats.run {
-                val boardInfo = "$xDimension x $yDimension at (${origin.x},${origin.y})"
-                val gameInfo = "$cellCount alive cells at generation $generation after ${elapsedSeconds / 1000} seconds running"
-                val base = "$boardInfo :: $gameInfo"
-
-                val message = if (running) "${floor(fps * 100) / 100} frames per second :: $base" else base
-
-                title.append(message.toUpperCase())
-            }
-        }
-
-        onGetTimeMillis { Date().getTime().toLong() }
-
         document.addEventListener(
-            type = "keydown", callback = { rawEvent ->
+            type = "keydown",
+            callback = { rawEvent ->
 
-            val event = rawEvent as KeyboardEvent
+                val event = rawEvent as KeyboardEvent
 
-            when (event.key) {
-                "ArrowRight" -> panRight()
-                "ArrowLeft" -> panLeft()
-                "ArrowUp" -> panUp()
-                "ArrowDown" -> panDown()
-                "=" -> zoomIn()
-                "-" -> zoomOut()
-                "n" -> next()
-                " " -> toggleRunning()
-                "r" -> setPlane(plane)
-                "s" -> if (event.shiftKey) slowDown() else speedUp()
+                when (event.key) {
+                    "ArrowRight" -> panRight()
+                    "ArrowLeft" -> panLeft()
+                    "ArrowUp" -> panUp()
+                    "ArrowDown" -> panDown()
+                    "=" -> zoomIn()
+                    "-" -> zoomOut()
+                    "n" -> next()
+                    " " -> toggleRunning()
+                    "r" -> setPlane(plane)
+                    "s" -> if (event.shiftKey) slowDown() else speedUp()
+                }
             }
-        }
         )
 
         canvas.addEventListener(
-            type = "click", callback = { rawEvent ->
+            type = "click",
+            callback = { rawEvent ->
 
-            val event = rawEvent as MouseEvent
+                val event = rawEvent as MouseEvent
 
-            toggle(canvasX = event.pageX.toDouble(), canvasY = event.pageY.toDouble())
-        }
+                toggle(canvasX = event.pageX.toDouble(), canvasY = event.pageY.toDouble())
+            }
         )
-
-        setPlane(plane)
     }
 }
 
-class BrowserScheduler : Scheduler {
+object BrowserScheduler : Scheduler {
 
     override fun immediately(task: () -> Unit) {
         window.setTimeout(task, 0)

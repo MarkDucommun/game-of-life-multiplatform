@@ -1,31 +1,49 @@
 package io.ducommun.gameOfLife
 
-import io.ducommun.gameOfLife.Presets.SPAGHETTI_MONSTER
+import io.ducommun.gameOfLife.Presets.INFINITE_GLIDER_HOTEL_FOUR
 import io.ducommun.gameOfLife.viewModel.GameOfLifeViewModel
 import io.ducommun.gameOfLife.viewModel.Scheduler
 import org.khronos.webgl.Uint8ClampedArray
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.HTMLDivElement
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.MouseEvent
 import kotlin.browser.document
 import kotlin.browser.window
+import kotlin.dom.clear
 import kotlin.js.Date
+import kotlin.math.floor
 
 fun main(args: Array<String>) {
 
     val canvasDimension = 1024
     val boardDimension = 4096
+    val plane = INFINITE_GLIDER_HOTEL_FOUR
+    val deadColor = Colors.FLAT_BLACK
+    val aliveColor = Colors.LIGHT_YELLOW
 
+    val title = document.createElement("div") as HTMLDivElement
     val canvas = document.createElement("canvas") as HTMLCanvasElement
+
+    val deadColorString = "#${deadColor.asDynamic().toString(16)}"
+    val aliveColorString = "#${aliveColor.asDynamic().toString(16)}"
+
+    title.style.backgroundColor = deadColorString
+    title.style.fontFamily = "andale mono"
+    title.style.color = aliveColorString
+    title.style.paddingLeft = "10px"
+    title.style.paddingTop = "3px"
 
     canvas.width = canvasDimension
     canvas.height = canvasDimension
 
+    document.body?.appendChild(title)
     document.body?.appendChild(canvas)
+    document.body?.style?.backgroundColor = deadColorString
 
     val context = canvas.getContext("2d") as CanvasRenderingContext2D
-    context.fillStyle = "#C1D5EC"
+    context.fillStyle = deadColorString
     context.fillRect(0.0, 0.0, canvasDimension.toDouble(), canvasDimension.toDouble())
 
     GameOfLifeViewModel(
@@ -34,8 +52,8 @@ fun main(args: Array<String>) {
         canvasHeight = canvasDimension,
         initialBoardWidth = boardDimension,
         initialBoardHeight = boardDimension,
-        aliveColor = 0xFF_00_00_00.toInt() + Colors.LIGHT_YELLOW,
-        deadColor = 0xFF_00_00_00.toInt() + Colors.FLAT_BLACK,
+        aliveColor = 0xFF_00_00_00.toInt() + aliveColor,
+        deadColor = 0xFF_00_00_00.toInt() + deadColor,
         initialFps = 120,
         useGradient = true
     ).run {
@@ -63,6 +81,19 @@ fun main(args: Array<String>) {
                 }
             }
         }
+        onSetStats { stats ->
+            title.clear()
+            stats.run {
+                val boardInfo = "$xDimension x $yDimension at (${origin.x},${origin.y})"
+                val gameInfo = "$cellCount alive cells at generation $generation after ${elapsedSeconds / 1000} seconds running"
+                val base = "$boardInfo :: $gameInfo"
+
+                val message = if (running) "${floor(fps * 100) / 100} frames per second :: $base" else base
+
+                title.append(message.toUpperCase())
+            }
+        }
+
         onGetTimeMillis { Date().getTime().toLong() }
 
         document.addEventListener(
@@ -79,20 +110,22 @@ fun main(args: Array<String>) {
                 "-" -> zoomOut()
                 "n" -> next()
                 " " -> toggleRunning()
+                "r" -> setPlane(plane)
                 "s" -> if (event.shiftKey) slowDown() else speedUp()
             }
         }
         )
 
-        canvas.addEventListener(type = "click", callback = { rawEvent ->
+        canvas.addEventListener(
+            type = "click", callback = { rawEvent ->
 
             val event = rawEvent as MouseEvent
 
             toggle(canvasX = event.pageX.toDouble(), canvasY = event.pageY.toDouble())
-        })
+        }
+        )
 
-        setPlane(SPAGHETTI_MONSTER)
-        start()
+        setPlane(plane)
     }
 }
 

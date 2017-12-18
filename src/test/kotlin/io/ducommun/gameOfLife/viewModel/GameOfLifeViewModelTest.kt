@@ -2,6 +2,7 @@ package io.ducommun.gameOfLife.viewModel
 
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
+import io.ducommun.gameOfLife.Plane
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,7 +10,7 @@ import kotlin.test.assertTrue
 
 class GameOfLifeViewModelTest {
 
-    val scheduler = FakeScheduler()
+    val scheduler = TestScheduler()
 
     val deadColor = 100
     val aliveColor = 101
@@ -101,7 +102,7 @@ class GameOfLifeViewModelTest {
         var canvas = IntArray(canvasWidth * canvasHeight)
 
         GameOfLifeViewModel(
-            scheduler = FakeScheduler(),
+            scheduler = TestScheduler(),
             canvasWidth = canvasWidth,
             canvasHeight = canvasHeight,
             initialBoardWidth = 4,
@@ -143,7 +144,7 @@ class GameOfLifeViewModelTest {
         var titleCount = 0
 
         GameOfLifeViewModel(
-            scheduler = FakeScheduler(),
+            scheduler = TestScheduler(),
             canvasWidth = 128,
             canvasHeight = 128,
             initialBoardWidth = 4,
@@ -179,26 +180,25 @@ class GameOfLifeViewModelTest {
     }
 
     @Test
-    fun sets_the_title_when_we_zoom_in() {
+    fun sets_the_title_when_we_zoom_or_pan() {
 
         listOf(
-            subject::zoomIn to "zoomIn",
-            subject::zoomOut to "zoomOut",
-            subject::panLeft to "panLeft",
-            subject::panRight to "panRight",
-            subject::panUp to "panUp",
-            subject::panDown to "panDown"
+            GameOfLifeViewModel::zoomIn to "zoomIn",
+            GameOfLifeViewModel::zoomOut to "zoomOut",
+            GameOfLifeViewModel::panLeft to "panLeft",
+            GameOfLifeViewModel::panRight to "panRight",
+            GameOfLifeViewModel::panUp to "panUp",
+            GameOfLifeViewModel::panDown to "panDown"
         ).forEach { (fnThatUpdatesStats, functionName) ->
-
-            subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
 
             var titleCount = 0
 
-            subject.onSetStats { stats -> titleCount++ }
+            val subject: GameOfLifeViewModel = viewModel(actions = defaultAction.copy(updateStats = { titleCount++ }))
 
-            fnThatUpdatesStats.invoke()
+            fnThatUpdatesStats.invoke(subject)
 
-            assertEquals(expected = 1, actual = titleCount, message = "Function $functionName responsible for failure")
+            // once on set plane, once on zoom/pan action
+            assertEquals(expected = 2, actual = titleCount, message = "Function $functionName responsible for failure")
         }
     }
 
@@ -207,9 +207,11 @@ class GameOfLifeViewModelTest {
 
         var threadNum: Int? = null
 
-        subject.onDraw { threadNum = scheduler.threadNum }
+        val scheduler = TestScheduler()
 
-        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+        viewModel(actions = defaultAction.copy(drawPlane = {
+            threadNum = scheduler.threadNum
+        }))
 
         assertEquals(UI_THREAD, threadNum)
     }
@@ -219,9 +221,9 @@ class GameOfLifeViewModelTest {
 
         var threadNum: Int? = null
 
-        subject.onSetStats { threadNum = scheduler.threadNum }
+        val scheduler = TestScheduler()
 
-        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+        viewModel(actions = defaultAction.copy(updateStats = { threadNum = scheduler.threadNum }))
 
         assertEquals(UI_THREAD, threadNum)
     }
@@ -229,79 +231,63 @@ class GameOfLifeViewModelTest {
     @Test
     fun sets_the_title_and_increments_generation_when_running() {
 
-        subject.setPlane(
-            HashSetPlane(
-                setOf(
+        val scheduler = TestScheduler()
 
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-                )
-            )
-        )
+        var generation = -1
 
-        var setTitleCount = 0
+        viewModel(
+            scheduler = scheduler,
+            actions = defaultAction.copy(updateStats = { generation = it.generation })
+        ) {
 
-        subject.onSetStats {
+            start()
 
-            setTitleCount++
+            repeat(10) { count ->
 
-            assertEquals(expected = setTitleCount, actual = it.generation)
+                scheduler.advance(100)
+
+                assertEquals(expected = count + 1, actual = generation)
+            }
         }
-
-        var currentTime = 0L
-
-        subject.onGetTimeMillis { currentTime }
-
-        subject.start()
-
-        repeat(10) { scheduler.advance(100) }
-
-        assertEquals(expected = 10, actual = setTitleCount)
     }
 
     @Test
     fun tracks_elapsed_time_when_running() {
 
-        subject.setPlane(
-            HashSetPlane(
-                setOf(
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-                )
-            )
-        )
+        val scheduler = TestScheduler()
 
-        var elapsedTime: Long? = null
-
-        subject.onSetStats {
-            elapsedTime = it.elapsedSeconds
-        }
+        var elapsedTime = -1L
 
         var currentTime = 0L
 
-        subject.onGetTimeMillis { currentTime }
+        viewModel(
+            actions = defaultAction.copy(
+                updateStats = { elapsedTime = it.elapsedSeconds },
+                currentTime = { currentTime }
+            ),
+            scheduler = scheduler
+        ) {
 
-        subject.start()
+            start()
 
-        currentTime = 1000
+            currentTime = 1000
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 1000, actual = elapsedTime)
+            assertEquals(expected = 1000, actual = elapsedTime)
 
-        subject.stop()
+            stop()
 
-        currentTime = 1500
+            currentTime = 1500
 
-        subject.start()
+            start()
 
-        currentTime = 2000
+            currentTime = 2000
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 1500, actual = elapsedTime)
+            assertEquals(expected = 1500, actual = elapsedTime)
+        }
     }
 
     @Test
@@ -1612,6 +1598,60 @@ class GameOfLifeViewModelTest {
                     row(0, 1)
                 )
             )
+        }
+    }
+
+    data class Actions(
+        val drawPlane: (IntArray) -> Unit,
+        val drawPlaneDiff: (List<Rect>) -> Unit,
+        val updateStats: (GameOfLifeViewModel.Stats) -> Unit,
+        val currentTime: () -> Long
+    )
+
+    data class Settings(
+        val canvasDimension: Int
+    )
+
+    private val defaultAction = Actions(
+        drawPlane = {},
+        drawPlaneDiff = {},
+        updateStats = {},
+        currentTime = { -1L }
+    )
+
+    private val defaultSettings = Settings(
+        canvasDimension = 128
+    )
+
+    private val emptyPlane = HashSetPlane(setOf())
+
+    private fun viewModel(
+        plane: Plane = emptyPlane,
+        actions: Actions = defaultAction,
+        settings: Settings = defaultSettings,
+        scheduler: Scheduler = TestScheduler(),
+        use: GameOfLifeViewModel.() -> Unit = {}
+    ): GameOfLifeViewModel {
+
+        return GameOfLifeViewModel(
+            scheduler = scheduler,
+            canvasWidth = settings.canvasDimension,
+            canvasHeight = settings.canvasDimension,
+            initialBoardWidth = 4,
+            initialBoardHeight = 4,
+            aliveColor = 101,
+            deadColor = 100,
+            initialFps = 10
+        ).apply {
+
+            onDraw(actions.drawPlane)
+            onDrawDiff(actions.drawPlaneDiff)
+            onSetStats(actions.updateStats)
+            onGetTimeMillis(actions.currentTime)
+
+            setPlane(plane)
+
+            use()
         }
     }
 

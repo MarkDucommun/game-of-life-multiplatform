@@ -2,48 +2,10 @@ package io.ducommun.gameOfLife.viewModel
 
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
-import kotlin.jvm.javaClass
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-
-const val UI_THREAD = 999
-
-class FakeScheduler : Scheduler {
-    var threadNum = 0
-
-    override fun immediately(task: () -> Unit) {
-        threadNum += 1
-        task()
-        threadNum -= 1
-    }
-
-    override fun onUIThread(task: () -> Unit) {
-        val savedThreadNum = threadNum
-        threadNum = UI_THREAD
-        task()
-        threadNum = savedThreadNum
-    }
-
-    private var ticks = 0L
-
-    data class Task(val execute: () -> Unit, val scheduledTime: Long)
-
-    private val tasks = mutableListOf<Task>()
-
-    override fun delay(milliseconds: Int, task: () -> Unit) {
-        tasks.add(Task(execute = task, scheduledTime = ticks + milliseconds))
-    }
-
-    fun advance(milliseconds: Int) {
-        ticks += milliseconds
-        tasks
-            .filter { it.scheduledTime <= ticks }
-            .forEach { immediately { it.execute() } }
-        tasks.removeAll { it.scheduledTime <= ticks }
-    }
-}
 
 class GameOfLifeViewModelTest {
 
@@ -67,9 +29,11 @@ class GameOfLifeViewModelTest {
 
     var canvas = IntArray(canvasWidth * canvasHeight)
 
-    fun row(vararg cells: Int): Iterable<Int> {
+    private fun row(vararg cells: Int): Iterable<Int> {
+
         val deadCell = IntArray(canvasWidth / cells.size) { deadColor }
             .asIterable()
+
         val aliveCell = IntArray(canvasWidth / cells.size) { aliveColor }
             .asIterable()
 
@@ -82,7 +46,7 @@ class GameOfLifeViewModelTest {
         }
     }
 
-    fun grid(vararg rows: Iterable<Int>): IntArray =
+    private fun grid(vararg rows: Iterable<Int>): IntArray =
         rows.flatMap { row -> (1..canvasHeight / rows.size).flatMap { row } }.toIntArray()
 
     private fun setDimensions(
@@ -131,45 +95,87 @@ class GameOfLifeViewModelTest {
     @Test
     fun draws_the_starting_plane() {
 
-        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+        val canvasWidth = 128
+        val canvasHeight = 128
 
-        assertCanvasEqual(
-            grid(
-                row(0, 0, 0, 0),
-                row(0, 0, 1, 0),
-                row(0, 0, 0, 0),
-                row(0, 0, 0, 0)
-            )
+        var canvas = IntArray(canvasWidth * canvasHeight)
+
+        GameOfLifeViewModel(
+            scheduler = FakeScheduler(),
+            canvasWidth = canvasWidth,
+            canvasHeight = canvasHeight,
+            initialBoardWidth = 4,
+            initialBoardHeight = 4,
+            aliveColor = 101,
+            deadColor = 100,
+            initialFps = 10
+        ).run {
+
+            onDraw { canvas = it }
+
+            setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
+        }
+
+        val expectedCanvas = grid(
+            row(0, 0, 0, 0),
+            row(0, 0, 1, 0),
+            row(0, 0, 0, 0),
+            row(0, 0, 0, 0)
         )
+
+        assertEquals(expected = canvasWidth * canvasHeight, actual = canvas.size, message = "Unexpected canvas size")
+
+        for (y in 0 until canvasHeight) for (x in 0 until canvasWidth) {
+            val index = x + canvasWidth * y
+            val expected = expectedCanvas[index]
+            val actual = canvas[index]
+            if (expected != actual) assertEquals(
+                expected = expected,
+                actual = actual,
+                message = "Mismatch at ($x, $y)"
+            )
+        }
     }
 
     @Test
     fun sets_the_title_when_plane_is_set() {
+
         var titleCount = 0
 
-        subject.onSetStats { stats ->
+        GameOfLifeViewModel(
+            scheduler = FakeScheduler(),
+            canvasWidth = 128,
+            canvasHeight = 128,
+            initialBoardWidth = 4,
+            initialBoardHeight = 4,
+            aliveColor = 101,
+            deadColor = 100,
+            initialFps = 10
+        ).run {
 
-            assertEquals(
-                expected = GameOfLifeViewModel.Stats(
-                    running = false,
-                    fps = 0.0,
-                    origin = Coordinate(0, 0),
-                    xDimension = 4,
-                    yDimension = 4,
-                    generation = 0,
-                    cellCount = 1,
-                    elapsedSeconds = 0
-                ),
-                actual = stats
-            )
+            onSetStats { stats ->
 
-            titleCount++
+                assertEquals(
+                    expected = GameOfLifeViewModel.Stats(
+                        running = false,
+                        fps = 0.0,
+                        origin = Coordinate(0, 0),
+                        xDimension = 4,
+                        yDimension = 4,
+                        generation = 0,
+                        cellCount = 1,
+                        elapsedSeconds = 0
+                    ),
+                    actual = stats
+                )
+
+                titleCount++
+            }
+
+            setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
         }
 
-        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
-
         assertEquals(expected = 1, actual = titleCount)
-
     }
 
     @Test
@@ -198,6 +204,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun draws_on_the_UI_thread() {
+
         var threadNum: Int? = null
 
         subject.onDraw { threadNum = scheduler.threadNum }
@@ -209,6 +216,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun sets_title_on_the_UI_thread() {
+
         var threadNum: Int? = null
 
         subject.onSetStats { threadNum = scheduler.threadNum }
@@ -235,7 +243,9 @@ class GameOfLifeViewModelTest {
         var setTitleCount = 0
 
         subject.onSetStats {
+
             setTitleCount++
+
             assertEquals(expected = setTitleCount, actual = it.generation)
         }
 
@@ -248,7 +258,6 @@ class GameOfLifeViewModelTest {
         repeat(10) { scheduler.advance(100) }
 
         assertEquals(expected = 10, actual = setTitleCount)
-
     }
 
     @Test
@@ -374,6 +383,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun calling_the_start_method_and_advancing_time_by_more_than_frame_rate_draws_next_plane() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -417,6 +427,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun calling_start_twice_does_not_start_two_loops() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -491,6 +502,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun cells_out_of_bounds_are_not_drawn_when_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -508,6 +520,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun zoom_in_works_when_not_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -539,6 +552,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun zoom_in_increases_cell_size_by_2_X_on_next_iteration() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -550,6 +564,7 @@ class GameOfLifeViewModelTest {
         )
 
         subject.start()
+
         subject.zoomIn()
 
         assertCanvasEqual(
@@ -622,6 +637,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun zoom_out_decreases_cell_size_by_2_X_on_next_iteration() {
+
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.setPlane(
@@ -670,6 +686,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun zoom_out_works_when_not_running() {
+
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.setPlane(
@@ -703,6 +720,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_left_moves_one_place_to_the_right_on_next_iteration() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -751,6 +769,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_right_moves_one_left_on_next_iteration() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -799,6 +818,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_up_moves_one_down_on_next_iteration() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -847,6 +867,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_down_moves_one_up_on_next_iteration() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -895,6 +916,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_left_works_when_not_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -928,6 +950,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_right_works_when_not_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -961,6 +984,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_up_works_when_not_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -994,6 +1018,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun pan_down_works_when_not_running() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -1051,6 +1076,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun when_board_dimension_is_larger_than_canvas_dimension_it_updates() {
+
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
         subject.run {
@@ -1086,6 +1112,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun next_moves_plane_to_the_next_step_then_stops() {
+
         subject.setPlane(
             HashSetPlane(
                 setOf(
@@ -1158,6 +1185,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun toggle_translates_the_canvas_coordinates_to_board_coordinates() {
+
         setDimensions(
             boardHeight = 4,
             boardWidth = 4,
@@ -1197,6 +1225,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun stop_stops_rendering_the_game() {
+
         setDimensions(canvasWidth = 2, canvasHeight = 2)
 
         subject.run {
@@ -1478,6 +1507,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun toggle_running_starts_if_stopped() {
+
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {
@@ -1531,6 +1561,7 @@ class GameOfLifeViewModelTest {
 
     @Test
     fun toggle_running_stops_if_started() {
+
         setDimensions(boardWidth = 2, boardHeight = 2)
 
         subject.run {

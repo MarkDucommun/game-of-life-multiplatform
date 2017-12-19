@@ -2,7 +2,6 @@ package io.ducommun.gameOfLife.viewModel
 
 import io.ducommun.gameOfLife.Coordinate
 import io.ducommun.gameOfLife.HashSetPlane
-import io.ducommun.gameOfLife.Plane
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,26 +28,6 @@ class GameOfLifeViewModelTest {
     )
 
     var canvas = IntArray(canvasWidth * canvasHeight)
-
-    private fun row(vararg cells: Int): Iterable<Int> {
-
-        val deadCell = IntArray(canvasWidth / cells.size) { deadColor }
-            .asIterable()
-
-        val aliveCell = IntArray(canvasWidth / cells.size) { aliveColor }
-            .asIterable()
-
-        return cells.flatMap { cell ->
-            when (cell) {
-                0 -> deadCell
-                1 -> aliveCell
-                else -> throw Throwable("Unexpected cell value")
-            }
-        }
-    }
-
-    private fun grid(vararg rows: Iterable<Int>): IntArray =
-        rows.flatMap { row -> (1..canvasHeight / rows.size).flatMap { row } }.toIntArray()
 
     private fun setDimensions(
         boardWidth: Int = 4,
@@ -96,45 +75,23 @@ class GameOfLifeViewModelTest {
     @Test
     fun draws_the_starting_plane() {
 
-        val canvasWidth = 128
-        val canvasHeight = 128
+        val canvas = TestView(dimension = 128, aliveColor = 101, deadColor = 100)
 
-        var canvas = IntArray(canvasWidth * canvasHeight)
-
-        GameOfLifeViewModel(
-            scheduler = TestScheduler(),
-            canvasWidth = canvasWidth,
-            canvasHeight = canvasHeight,
-            initialBoardWidth = 4,
-            initialBoardHeight = 4,
-            aliveColor = 101,
-            deadColor = 100,
-            initialFps = 10
-        ).run {
-
-            onDraw { canvas = it }
-
-            setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
-        }
-
-        val expectedCanvas = grid(
-            row(0, 0, 0, 0),
-            row(0, 0, 1, 0),
-            row(0, 0, 0, 0),
-            row(0, 0, 0, 0)
+        viewModel(
+            coordinates = setOf(Coordinate(x = 0, y = 0)),
+            actions = defaultActions.copy(drawPlane = { canvas.set(it) }),
+            settings = defaultSettings.copy(
+                canvasDimension = canvas.width,
+                aliveColor = canvas.aliveColor,
+                deadColor = canvas.deadColor
+            )
         )
 
-        assertEquals(expected = canvasWidth * canvasHeight, actual = canvas.size, message = "Unexpected canvas size")
-
-        for (y in 0 until canvasHeight) for (x in 0 until canvasWidth) {
-            val index = x + canvasWidth * y
-            val expected = expectedCanvas[index]
-            val actual = canvas[index]
-            if (expected != actual) assertEquals(
-                expected = expected,
-                actual = actual,
-                message = "Mismatch at ($x, $y)"
-            )
+        canvas shouldEqual {
+            row(0, 0, 0, 0)
+            row(0, 0, 1, 0)
+            row(0, 0, 0, 0)
+            row(0, 0, 0, 0)
         }
     }
 
@@ -143,38 +100,30 @@ class GameOfLifeViewModelTest {
 
         var titleCount = 0
 
-        GameOfLifeViewModel(
-            scheduler = TestScheduler(),
-            canvasWidth = 128,
-            canvasHeight = 128,
-            initialBoardWidth = 4,
-            initialBoardHeight = 4,
-            aliveColor = 101,
-            deadColor = 100,
-            initialFps = 10
-        ).run {
+        viewModel(
+            coordinates = setOf(Coordinate(x = 0, y = 0)),
+            actions = defaultActions.copy(
+                updateStats = { stats ->
 
-            onSetStats { stats ->
+                    assertEquals(
+                        expected = GameOfLifeViewModel.Stats(
+                            running = false,
+                            fps = 0.0,
+                            origin = Coordinate(0, 0),
+                            xDimension = 4,
+                            yDimension = 4,
+                            generation = 0,
+                            cellCount = 1,
+                            elapsedSeconds = 0
+                        ),
+                        actual = stats
+                    )
 
-                assertEquals(
-                    expected = GameOfLifeViewModel.Stats(
-                        running = false,
-                        fps = 0.0,
-                        origin = Coordinate(0, 0),
-                        xDimension = 4,
-                        yDimension = 4,
-                        generation = 0,
-                        cellCount = 1,
-                        elapsedSeconds = 0
-                    ),
-                    actual = stats
-                )
-
-                titleCount++
-            }
-
-            setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
-        }
+                    titleCount++
+                },
+                currentTime = { 0L }
+            )
+        )
 
         assertEquals(expected = 1, actual = titleCount)
     }
@@ -193,7 +142,7 @@ class GameOfLifeViewModelTest {
 
             var titleCount = 0
 
-            val subject: GameOfLifeViewModel = viewModel(actions = defaultAction.copy(updateStats = { titleCount++ }))
+            val subject: GameOfLifeViewModel = viewModel(actions = defaultActions.copy(updateStats = { titleCount++ }))
 
             fnThatUpdatesStats.invoke(subject)
 
@@ -209,11 +158,37 @@ class GameOfLifeViewModelTest {
 
         val scheduler = TestScheduler()
 
-        viewModel(actions = defaultAction.copy(drawPlane = {
-            threadNum = scheduler.threadNum
-        }))
+        viewModel(
+            actions = defaultActions.copy(
+                drawPlane = {
+                    threadNum = scheduler.threadNum
+                }
+            )
+        )
 
         assertEquals(UI_THREAD, threadNum)
+    }
+
+    @Test
+    fun draws_diff_on_the_UI_thread() {
+
+        var threadNum: Int? = null
+
+        val scheduler = TestScheduler()
+
+        viewModel(
+            actions = defaultActions.copy(
+                drawPlaneDiff = {
+                    threadNum = scheduler.currentThread
+                }
+            )
+        ) {
+            start()
+
+            scheduler.advance(milliseconds = 100)
+
+            assertEquals(UI_THREAD, threadNum)
+        }
     }
 
     @Test
@@ -223,7 +198,7 @@ class GameOfLifeViewModelTest {
 
         val scheduler = TestScheduler()
 
-        viewModel(actions = defaultAction.copy(updateStats = { threadNum = scheduler.threadNum }))
+        viewModel(actions = defaultActions.copy(updateStats = { threadNum = scheduler.currentThread }))
 
         assertEquals(UI_THREAD, threadNum)
     }
@@ -237,7 +212,7 @@ class GameOfLifeViewModelTest {
 
         viewModel(
             scheduler = scheduler,
-            actions = defaultAction.copy(updateStats = { generation = it.generation })
+            actions = defaultActions.copy(updateStats = { generation = it.generation })
         ) {
 
             start()
@@ -261,7 +236,7 @@ class GameOfLifeViewModelTest {
         var currentTime = 0L
 
         viewModel(
-            actions = defaultAction.copy(
+            actions = defaultActions.copy(
                 updateStats = { elapsedTime = it.elapsedSeconds },
                 currentTime = { currentTime }
             ),
@@ -293,78 +268,77 @@ class GameOfLifeViewModelTest {
     @Test
     fun tracks_frames_per_second_when_running() {
 
-        subject.setPlane(
-            HashSetPlane(
-                setOf(
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-                )
-            )
-        )
+        val scheduler = TestScheduler()
 
         var framesPerSecond: Double? = null
 
-        subject.onSetStats {
-            framesPerSecond = it.fps
-        }
-
         var currentTime = 0L
 
-        subject.onGetTimeMillis { currentTime }
+        viewModel(
+            coordinates = setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            ),
+            actions = defaultActions.copy(
+                updateStats = { framesPerSecond = it.fps },
+                currentTime = { currentTime }
+            ),
+            scheduler = scheduler
+        ) {
 
-        subject.start()
+            start()
 
-        currentTime = 2000
+            currentTime = 2000
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 0.5, actual = framesPerSecond)
+            assertEquals(expected = 0.5, actual = framesPerSecond)
 
-        currentTime = 3000
+            currentTime = 3000
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 1.0, actual = framesPerSecond)
+            assertEquals(expected = 1.0, actual = framesPerSecond)
+        }
     }
-
 
     @Test
     fun frames_per_second_only_changes_once_per_second() {
 
-        subject.setPlane(
-            HashSetPlane(
-                setOf(
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-                )
-            )
-        )
+        val scheduler = TestScheduler()
 
         var framesPerSecond: Double? = null
 
-        subject.onSetStats {
-            framesPerSecond = it.fps
-        }
-
         var currentTime = 0L
 
-        subject.onGetTimeMillis { currentTime }
+        viewModel(
+            coordinates = setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            ),
+            actions = defaultActions.copy(
+                updateStats = { framesPerSecond = it.fps },
+                currentTime = { currentTime }
+            ),
+            scheduler = scheduler
+        ) {
 
-        subject.start()
+            start()
 
-        currentTime = 500
+            currentTime = 500
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 0.0, actual = framesPerSecond)
+            assertEquals(expected = 0.0, actual = framesPerSecond)
 
-        currentTime = 1000
+            currentTime = 1000
 
-        scheduler.advance(100)
+            scheduler.advance(100)
 
-        assertEquals(expected = 2.0, actual = framesPerSecond)
+            assertEquals(expected = 2.0, actual = framesPerSecond)
+        }
     }
 
     @Test
@@ -410,7 +384,6 @@ class GameOfLifeViewModelTest {
         }
     }
 
-
     @Test
     fun calling_start_twice_does_not_start_two_loops() {
 
@@ -454,22 +427,6 @@ class GameOfLifeViewModelTest {
 
             scheduler.advance(milliseconds = 100)
         }
-    }
-
-    @Test
-    fun draws_diff_on_the_UI_thread() {
-
-        var threadNum: Int? = null
-
-        subject.onDrawDiff { threadNum = scheduler.threadNum }
-
-        subject.setPlane(HashSetPlane(setOf(Coordinate(x = 0, y = 0))))
-
-        subject.start()
-
-        scheduler.advance(milliseconds = 100)
-
-        assertEquals(UI_THREAD, threadNum)
     }
 
     @Test
@@ -1144,29 +1101,28 @@ class GameOfLifeViewModelTest {
     @Test
     fun next_sets_the_title_and_increments_the_generation_count() {
 
-        subject.setPlane(
-            HashSetPlane(
-                setOf(
-
-                    Coordinate(x = -1, y = 0),
-                    Coordinate(x = 0, y = 0),
-                    Coordinate(x = 1, y = 0)
-                )
-            )
-        )
-
         var setTitleCount = 0
 
-        subject.onSetStats {
-            setTitleCount++
-            assertEquals(expected = setTitleCount, actual = it.generation)
+        viewModel(
+            coordinates = setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            ),
+            actions = defaultActions.copy(
+                updateStats = {
+                    setTitleCount++
+                    assertEquals(expected = setTitleCount - 1, actual = it.generation)
+                }
+            )
+        ) {
+
+            next()
+
+            next()
+
+            assertEquals(expected = 3, actual = setTitleCount)
         }
-
-        subject.next()
-
-        subject.next()
-
-        assertEquals(expected = 2, actual = setTitleCount)
     }
 
     @Test
@@ -1548,56 +1504,55 @@ class GameOfLifeViewModelTest {
     @Test
     fun toggle_running_stops_if_started() {
 
-        setDimensions(boardWidth = 2, boardHeight = 2)
+        val scheduler = TestScheduler()
 
-        subject.run {
-            setPlane(
-                HashSetPlane(
-                    setOf(
-                        Coordinate(x = -1, y = 0),
-                        Coordinate(x = 0, y = 0),
-                        Coordinate(x = 1, y = 0)
-                    )
-                )
-            )
+        val view = TestView(dimension = 2, aliveColor = 101, deadColor = 100)
+
+        viewModel(
+            coordinates = setOf(
+                Coordinate(x = -1, y = 0),
+                Coordinate(x = 0, y = 0),
+                Coordinate(x = 1, y = 0)
+            ),
+            settings = defaultSettings.copy(
+                boardDimension = view.width,
+                canvasDimension = view.width,
+                aliveColor = view.aliveColor,
+                deadColor = view.deadColor
+            ),
+            actions = defaultActions.copy(drawPlane = { view.set(it) }),
+            scheduler = scheduler
+        ) {
 
             start()
 
-            assertCanvasEqual(
-                grid(
-                    row(1, 1),
-                    row(0, 0)
-                )
-            )
+            view shouldEqual {
+                row(1, 1)
+                row(0, 0)
+            }
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(
-                grid(
-                    row(0, 1),
-                    row(0, 1)
-                )
-            )
+            view shouldEqual {
+                row(0, 1)
+                row(0, 1)
+            }
 
             toggleRunning()
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(
-                grid(
-                    row(0, 1),
-                    row(0, 1)
-                )
-            )
+            view shouldEqual {
+                row(0, 1)
+                row(0, 1)
+            }
 
             scheduler.advance(milliseconds = 100)
 
-            assertCanvasEqual(
-                grid(
-                    row(0, 1),
-                    row(0, 1)
-                )
-            )
+            view shouldEqual {
+                row(0, 1)
+                row(0, 1)
+            }
         }
     }
 
@@ -1609,10 +1564,13 @@ class GameOfLifeViewModelTest {
     )
 
     data class Settings(
-        val canvasDimension: Int
+        val canvasDimension: Int,
+        val boardDimension: Int,
+        val aliveColor: Int,
+        val deadColor: Int
     )
 
-    private val defaultAction = Actions(
+    private val defaultActions = Actions(
         drawPlane = {},
         drawPlaneDiff = {},
         updateStats = {},
@@ -1620,14 +1578,15 @@ class GameOfLifeViewModelTest {
     )
 
     private val defaultSettings = Settings(
-        canvasDimension = 128
+        canvasDimension = 128,
+        boardDimension = 4,
+        aliveColor = 101,
+        deadColor = 100
     )
 
-    private val emptyPlane = HashSetPlane(setOf())
-
     private fun viewModel(
-        plane: Plane = emptyPlane,
-        actions: Actions = defaultAction,
+        coordinates: Set<Coordinate> = emptySet(),
+        actions: Actions = defaultActions,
         settings: Settings = defaultSettings,
         scheduler: Scheduler = TestScheduler(),
         use: GameOfLifeViewModel.() -> Unit = {}
@@ -1639,8 +1598,8 @@ class GameOfLifeViewModelTest {
             canvasHeight = settings.canvasDimension,
             initialBoardWidth = 4,
             initialBoardHeight = 4,
-            aliveColor = 101,
-            deadColor = 100,
+            aliveColor = settings.aliveColor,
+            deadColor = settings.deadColor,
             initialFps = 10
         ).apply {
 
@@ -1649,11 +1608,105 @@ class GameOfLifeViewModelTest {
             onSetStats(actions.updateStats)
             onGetTimeMillis(actions.currentTime)
 
-            setPlane(plane)
+            setPlane(HashSetPlane(coordinates))
 
             use()
         }
     }
+
+    class TestView(
+        val width: Int,
+        val height: Int,
+        val deadColor: Int = 0,
+        val aliveColor: Int = 1
+    ) {
+
+        constructor(dimension: Int, aliveColor: Int, deadColor: Int) : this(
+            width = dimension,
+            height = dimension,
+            aliveColor = aliveColor,
+            deadColor = deadColor
+        )
+
+        constructor(dimension: Int) : this(
+            width = dimension,
+            height = dimension
+        )
+
+        private var inner = IntArray(size = width * height)
+
+        fun set(canvas: IntArray) { inner = canvas }
+
+        infix fun shouldEqual(createCanvas: Grid.() -> Unit) {
+
+            val grid = Grid(width = width, height = height, aliveColor = aliveColor, deadColor = deadColor)
+
+            grid.createCanvas()
+
+            val expectedCanvas = grid.expectedCanvas()
+
+            assertEquals(expected = width * height, actual = inner.size, message = "Unexpected canvas size")
+
+            for (y in 0 until height) for (x in 0 until width) {
+                val index = x + width * y
+                val expected = expectedCanvas[index]
+                val actual = inner[index]
+                if (expected != actual) assertEquals(
+                    expected = expected,
+                    actual = actual,
+                    message = "Mismatch at ($x, $y)"
+                )
+            }
+        }
+
+        fun print() { inner.forEach { println(it) } }
+    }
+
+    class Grid(val width: Int, val height: Int, val aliveColor: Int, val deadColor: Int) {
+
+        private var rows = mutableListOf<Iterable<Int>>()
+
+        fun row(vararg cells: Int) {
+            val deadCell = IntArray(width / cells.size) { deadColor }
+                .asIterable()
+
+            val aliveCell = IntArray(width / cells.size) { aliveColor }
+                .asIterable()
+
+            rows.add(cells.flatMap { cell ->
+                when (cell) {
+                    0 -> deadCell
+                    1 -> aliveCell
+                    else -> throw Throwable("Unexpected cell value")
+                }
+            })
+        }
+
+        fun expectedCanvas(): IntArray {
+            return rows.flatMap { row -> (1..height / rows.size).flatMap { row } }.toIntArray()
+        }
+    }
+
+
+    private fun row(vararg cells: Int): Iterable<Int> {
+
+        val deadCell = IntArray(canvasWidth / cells.size) { deadColor }
+            .asIterable()
+
+        val aliveCell = IntArray(canvasWidth / cells.size) { aliveColor }
+            .asIterable()
+
+        return cells.flatMap { cell ->
+            when (cell) {
+                0 -> deadCell
+                1 -> aliveCell
+                else -> throw Throwable("Unexpected cell value")
+            }
+        }
+    }
+
+    private fun grid(vararg rows: Iterable<Int>): IntArray =
+        rows.flatMap { row -> (1..canvasHeight / rows.size).flatMap { row } }.toIntArray()
 
     private fun assertCanvasEqual(expectedCanvas: IntArray, message: String? = null) {
         for (y in 0 until canvasHeight) for (x in 0 until canvasWidth) {

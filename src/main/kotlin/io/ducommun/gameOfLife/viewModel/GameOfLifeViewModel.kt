@@ -179,6 +179,7 @@ class GameOfLifeViewModel(
         if (fps * 2 > 125) fps = 125 else fps *= 2
     }
 
+
     private fun loop() {
 
         val diff = plane.nextDiff

@@ -1520,15 +1520,19 @@ class GameOfLifeViewModelTest {
                 aliveColor = view.aliveColor,
                 deadColor = view.deadColor
             ),
-            actions = defaultActions.copy(drawPlane = { view.set(it) }),
+            actions = defaultActions.copy(
+                drawPlane = { view.set(it) },
+                drawPlaneDiff = { view.setDiff(it) }
+            ),
             scheduler = scheduler
         ) {
 
             start()
 
             view shouldEqual {
-                row(1, 1)
-                row(0, 0)
+                // -1  0
+                row(1, 1) // 0
+                row(0, 0) // -1
             }
 
             scheduler.advance(milliseconds = 100)
@@ -1636,6 +1640,16 @@ class GameOfLifeViewModelTest {
         private var inner = IntArray(size = width * height)
 
         fun set(canvas: IntArray) { inner = canvas }
+
+        fun setDiff(rects: List<Rect>) {
+            for (rect in rects) {
+                assertTrue("x=${rect.x} out of range") { rect.x in 0..width - rect.width }
+                assertTrue("y=${rect.y} out of range") { rect.y in 0..height - rect.height }
+                for (x in rect.x until rect.x + rect.width)
+                    for (y in rect.y until rect.y + rect.height)
+                        inner[x + width * y] = rect.color
+            }
+        }
 
         infix fun shouldEqual(createCanvas: Grid.() -> Unit) {
 
